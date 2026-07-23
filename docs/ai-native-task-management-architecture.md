@@ -7,6 +7,7 @@ Build a modern AI native task management SaaS where users can plan, execute, aut
 The product should compete with tools like Asana, ClickUp, Linear, Motion, Todoist, Notion, and Monday.com by combining:
 
 - Fast, intuitive task and project management.
+- The UI/UX should be more flud and drag and drop.
 - AI-first planning, summarization, prioritization, and automation.
 - Real-time collaboration.
 - Natural language task creation and updates.
