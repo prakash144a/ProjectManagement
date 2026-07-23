@@ -5,7 +5,11 @@
 # (`az extension add -n containerapp`), and an Azure Container Registry.
 #
 # Fill in the CHANGEME placeholders (or export them as env vars) before running.
-# Secrets are passed on the CLI, NOT stored in main.parameters.json.
+#
+# App secrets live in Key Vault — run the environment's one-time bootstrap ONCE first
+# (prod: `infra/oneTimeScripts/kvSecrets_Prod.sh`), then export the KEY_VAULT_NAME +
+# USER_ASSIGNED_IDENTITY_ID it prints. No secret VALUES are passed here (only the ACR
+# password, fetched below at deploy time).
 set -euo pipefail
 
 # ---- FILL THESE IN (or export before running) -------------------------------
@@ -15,9 +19,10 @@ LOCATION="${LOCATION:-eastus}"
 ACR_NAME="${ACR_NAME:-CHANGEME}"            # registry name (without .azurecr.io)
 NAME_PREFIX="${NAME_PREFIX:-pmapp}"
 
-# Secrets (export these; do not commit):
-DATABASE_URL="${DATABASE_URL:?export DATABASE_URL=postgresql://...}"
-GEMINI_API_KEY="${GEMINI_API_KEY:?export GEMINI_API_KEY=...}"
+# Key Vault references (from kvSecrets_Prod.sh) + non-secret ACS sender:
+KEY_VAULT_NAME="${KEY_VAULT_NAME:?run infra/oneTimeScripts/kvSecrets_Prod.sh first, then export KEY_VAULT_NAME}"
+USER_ASSIGNED_IDENTITY_ID="${USER_ASSIGNED_IDENTITY_ID:?export USER_ASSIGNED_IDENTITY_ID (printed by kvSecrets_Prod.sh)}"
+ACS_EMAIL_SENDER="${ACS_EMAIL_SENDER:?export ACS_EMAIL_SENDER=DoNotReply@<your-verified-domain>}"
 # -----------------------------------------------------------------------------
 
 REGISTRY="${ACR_NAME}.azurecr.io"
@@ -39,7 +44,8 @@ az deployment group create \
   -p namePrefix="$NAME_PREFIX" location="$LOCATION" \
      registryServer="$REGISTRY" registryUsername="$ACR_USER" registryPassword="$ACR_PASSWORD" \
      backendImage="$BACKEND_IMAGE" \
-     databaseUrl="$DATABASE_URL" geminiApiKey="$GEMINI_API_KEY" \
+     keyVaultName="$KEY_VAULT_NAME" userAssignedIdentityId="$USER_ASSIGNED_IDENTITY_ID" \
+     acsEmailSender="$ACS_EMAIL_SENDER" \
      corsOrigins="https://placeholder"
 
 API_URL="$(az deployment group show -g "$RESOURCE_GROUP" -n main --query properties.outputs.apiUrl.value -o tsv)"

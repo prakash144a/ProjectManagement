@@ -22,6 +22,7 @@ from app.errors import BadRequest, NotFound, RateLimited, Unauthorized
 from app.models.auth import OneTimeCode, Session
 from app.models.enums import Channel
 from app.models.identity import User
+from app.services import messaging
 
 log = logging.getLogger("app.auth")
 
@@ -109,8 +110,10 @@ def request_code(
     db.add(otp)
     db.flush()
 
-    # Dev "delivery": log the code. No SMS/email provider needed for testing.
-    log.info("OTP for %s via %s: %s", _mask(target), channel, code)
+    # Deliver via the provider seam. If a configured provider fails, this raises
+    # and the request transaction rolls back (get_db), so no orphaned code is
+    # left behind. With no provider (dev), it logs the code and returns False.
+    messaging.deliver_otp(channel, target, code)
 
     return {
         "sent": True,

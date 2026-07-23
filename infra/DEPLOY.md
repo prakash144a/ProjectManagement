@@ -16,31 +16,54 @@ Three separate apps in one Container Apps environment, from **two images**:
 
 ## Files
 - `backend/Dockerfile`, `frontend/Dockerfile` — the two images.
+- `infra/oneTimeScripts/kvSecrets_Prod.sh` — **one-time** secret bootstrap for prod
+  (Key Vault + identity + secrets). One file per environment lives in `oneTimeScripts/`.
 - `infra/main.bicep` — the Container Apps environment + 3 apps.
 - `infra/main.parameters.json` — non-secret params (**fill the `CHANGEME`s**).
 - `infra/deploy.sh` — build → push → deploy → wire URLs.
 
-## Fill in these placeholders (you'll provide later)
-In `deploy.sh` (or export as env vars) and `main.parameters.json`:
+## Secrets model (Key Vault)
+Secret **values** are never committed and never passed to the deploy CLI. You upload
+them once to Key Vault with the environment's `kvSecrets_*.sh`; the `api` container app reads them at
+runtime through a **user-assigned managed identity** (granted `Key Vault Secrets User`).
+
+| Secret (vault name) | Source |
+|---|---|
+| `database-url` | your Azure Postgres connection string |
+| `gemini-api-key` | your Gemini key |
+| `acs-email-connection-string` | Azure Communication Services email connection string |
+
+The **ACS sender address** (`ACS_EMAIL_SENDER`) is *not* secret — it's a plain deploy
+param. `mcp` and `web` hold no secrets.
+
+## Fill in these placeholders
+In `deploy.sh` / `oneTimeScripts/kvSecrets_Prod.sh` (or export as env vars) and `main.parameters.json`:
 - `SUBSCRIPTION` — Azure subscription id
 - `RESOURCE_GROUP` — target resource group
 - `LOCATION` — e.g. `eastus`
 - `ACR_NAME` — your Azure Container Registry name
 - `NAME_PREFIX` — resource name prefix (default `pmapp`)
-
-Secrets — **export, don't commit**:
-- `DATABASE_URL` — your Azure Postgres connection string
-- `GEMINI_API_KEY` — your Gemini key
+- `ACS_EMAIL_SENDER` — verified ACS sender, e.g. `DoNotReply@<domain>.azurecomm.net`
 
 ## Deploy
 ```bash
 az login
 az extension add -n containerapp --upgrade
-export DATABASE_URL='postgresql://...'   GEMINI_API_KEY='...'
-export SUBSCRIPTION=... RESOURCE_GROUP=... ACR_NAME=...
+export SUBSCRIPTION=... RESOURCE_GROUP=... LOCATION=eastus ACR_NAME=...
+
+# 1) One-time: create the vault + identity + secrets (export the secret VALUES first).
+export DATABASE_URL='postgresql://...'  GEMINI_API_KEY='...'  \
+       ACS_EMAIL_CONNECTION_STRING='endpoint=https://...;accesskey=...'
+bash infra/oneTimeScripts/kvSecrets_Prod.sh
+# → prints KEY_VAULT_NAME and USER_ASSIGNED_IDENTITY_ID to export next.
+
+# 2) Deploy (references the vault; no secret values on the CLI).
+export KEY_VAULT_NAME='pmapp-kv'  USER_ASSIGNED_IDENTITY_ID='/subscriptions/.../userAssignedIdentities/pmapp-id'
+export ACS_EMAIL_SENDER='DoNotReply@<your-verified-domain>'
 bash infra/deploy.sh
 ```
-The script: builds the backend image, deploys api+mcp, reads their URLs, builds the
+`kvSecrets_Prod.sh` is idempotent — re-run it only to rotate a secret value.
+`deploy.sh` builds the backend image, deploys api+mcp, reads their URLs, builds the
 frontend image with those URLs, then points the web app at it and fixes CORS.
 
 ## After the first deploy
@@ -52,17 +75,16 @@ frontend image with those URLs, then points the web app at it and fixes CORS.
 ## ⚠️ Before this is a usable production system
 These are known gaps (tracked as milestones), not deployment bugs:
 
-- **OTP delivery is not wired.** `DEV_OTP_ECHO=false` in prod (correct), but there's no
-  SMS/email provider yet, so **codes are only logged — users cannot receive them and
-  cannot log in**. Wire an SMS + email provider before real users. (This is the deferred
-  "Real OTP delivery" milestone.)
+- **Email OTP delivery is wired** (Azure Communication Services; `ACS_EMAIL_*`). Confirm
+  `DEV_OTP_ECHO=false` (set here) and that the vault holds `acs-email-connection-string`
+  with a verified sender, so email users can log in. **SMS OTP is still not wired** — mobile
+  identifiers can't receive codes yet (deferred milestone).
 - **DB role bypasses RLS.** The app connects as the Postgres owner, which has `BYPASSRLS`,
   so row-level security is currently inert. Create a **least-privilege app role (no
   BYPASSRLS)** and point `DATABASE_URL` at it so RLS actually enforces tenant isolation.
-- **Registry auth** uses admin credentials for simplicity; prefer a **user-assigned managed
-  identity with `AcrPull`** for production.
-- **Secrets** are passed as container secrets; moving them to **Key Vault** (referenced via
-  managed identity) is the hardening step.
+- **Registry auth** uses admin credentials for simplicity; prefer using the same
+  **user-assigned managed identity with `AcrPull`** (the identity already exists) for
+  production, and drop the admin password.
 - **MCP auth** is Personal Access Tokens; add **OAuth 2.1** later for one-click Claude/ChatGPT
   connect.
 - Consider **custom domains** (`api.`, `mcp.`, `app.`) so the frontend build URLs are stable.

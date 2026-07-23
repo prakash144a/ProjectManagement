@@ -12,11 +12,20 @@ MCP `:8100`, web `:3000`. Models: `gemini-flash-latest` (chat),
 
 ---
 
-## ▶ IMMEDIATE / IN PROGRESS: Email OTP delivery
+## ✅ DONE — Email OTP delivery (live-verified 2026-07-23)
 **Decision:** email-first, **Azure Communication Services (ACS)**. SMS deferred.
-**Why:** prod-login blocker — today OTP codes are only logged (`DEV_OTP_ECHO`); the
-OTP itself (generate/hash/store/expiry/attempt-caps/rate-limits) is already built.
-Only *delivery* is missing.
+**Why:** was the prod-login blocker — OTP codes were only logged (`DEV_OTP_ECHO`); the
+OTP itself (generate/hash/store/expiry/attempt-caps/rate-limits) was already built.
+Only *delivery* was missing.
+
+**Status:** delivery seam built + tested (`app/services/messaging.py`, wired into
+`auth_service.request_code`) and **live-verified** — real send to the owner's inbox
+returned ACS HTTP 200. No ACS creds → dev-log fallback (existing tests + `dev_code`
+echo intact); with creds → real email. Provider send failure raises
+`ServiceUnavailable`, request rolls back (no orphaned code). SMS dev-logs in dev,
+raises in prod. `azure-communication-email` added to deps. ACS creds live in `.env`
+(sender = the Azure-managed `...azurecomm.net` domain). **Remaining for prod: set
+`DEV_OTP_ECHO=false` and put the ACS creds in Key Vault at deploy time.**
 
 **Owner setup (Azure) — needed for live test:**
 1. Create an **Azure Communication Services** resource.
@@ -46,7 +55,7 @@ Only *delivery* is missing.
 ---
 
 ## Milestone backlog (priority order)
-1. **Email OTP** (above) — unblocks prod login.
+1. **Email OTP** (above) — code done; unblocks prod login once ACS creds are added.
 2. **DB hardening — least-privilege app role.** `prakash` has `BYPASSRLS`, so RLS is
    inert. Create a role WITHOUT bypassrls, grant table privileges, point
    `DATABASE_URL` at it → RLS actually enforces tenant isolation.
@@ -72,7 +81,7 @@ Only *delivery* is missing.
 ---
 
 ## Owner action checklist (external dependencies)
-- [ ] **ACS** resource + email domain + connection string + sender → `.env`
+- [x] **ACS** resource + email domain + connection string + sender → `.env` (live-verified 2026-07-23)
 - [ ] **Azure deploy**: subscription id, resource group, ACR name
 - [ ] **DB**: create least-privilege role (no `BYPASSRLS`), grant, new `DATABASE_URL`
 - [x] `VECTOR` allow-listed in `azure.extensions` (done — A1 live)

@@ -45,6 +45,15 @@ class Settings(BaseSettings):
     # SMS/email provider. MUST be false in any real environment.
     DEV_OTP_ECHO: bool = True
 
+    # --- Email delivery (Azure Communication Services) ---
+    # Both a connection string and a verified sender enable real OTP email.
+    # If either is blank, OTP delivery falls back to logging the code (dev), so
+    # local testing needs no provider. Set both in prod (Key Vault → env).
+    ACS_EMAIL_CONNECTION_STRING: str = ""
+    ACS_EMAIL_SENDER: str = ""  # e.g. DoNotReply@<your-verified-domain>
+    # Product name used in the OTP email subject/body.
+    APP_NAME: str = "Project Management"
+
     # --- AI / chat agent (Phase 2) ---
     # Gemini API key (Google AI Studio). Blank disables the chat agent; /chat
     # then returns a clear "AI not configured" error instead of failing obscurely.
@@ -67,6 +76,13 @@ class Settings(BaseSettings):
     @property
     def ai_enabled(self) -> bool:
         return bool(self.GEMINI_API_KEY.strip())
+
+    @property
+    def email_enabled(self) -> bool:
+        """True when ACS email is configured; otherwise OTP delivery dev-logs."""
+        return bool(
+            self.ACS_EMAIL_CONNECTION_STRING.strip() and self.ACS_EMAIL_SENDER.strip()
+        )
 
     @property
     def is_dev(self) -> bool:

@@ -3,6 +3,9 @@
 .env.local
 *.env
 
+# One-time, environment-specific bootstrap scripts (may hold env/secret details)
+infra/oneTimeScripts/
+
 # Python
 __pycache__/
 *.py[cod]

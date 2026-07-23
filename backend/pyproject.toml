@@ -20,6 +20,7 @@ dependencies = [
     "google-genai>=1.0",
     "mcp>=1.0",
     "httpx>=0.27",
+    "azure-communication-email>=1.0",
 ]
 
 [project.optional-dependencies]
