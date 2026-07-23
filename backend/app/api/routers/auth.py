@@ -1,9 +1,11 @@
 from __future__ import annotations
 
+import uuid
+
 from fastapi import APIRouter, Depends, Request
 from sqlalchemy.orm import Session as DbSession
 
-from app.api.deps import client_ip, current_session, current_user
+from app.api.deps import client_ip, current_session, current_user, org_context
 from app.db.session import get_db
 from app.models.auth import Session
 from app.models.identity import User
@@ -11,6 +13,9 @@ from app.schemas.auth import (
     RequestCodeIn,
     RequestCodeOut,
     SessionOut,
+    TokenCreate,
+    TokenCreated,
+    TokenOut,
     UserOut,
     VerifyCodeIn,
 )
@@ -49,3 +54,37 @@ def logout(
 ) -> dict:
     auth_service.revoke_session(db, session)
     return {"ok": True}
+
+
+# --- Personal Access Tokens (org-scoped; used to connect the MCP server) ---
+
+@router.post("/tokens", response_model=TokenCreated, status_code=201)
+def create_token(
+    body: TokenCreate,
+    org_id: uuid.UUID = Depends(org_context),
+    db: DbSession = Depends(get_db),
+    user: User = Depends(current_user),
+) -> TokenCreated:
+    pat, raw = auth_service.create_pat(db, user.id, org_id, body.name)
+    return TokenCreated(
+        id=pat.id, name=pat.name, token=raw, created_at=pat.created_at, expires_at=pat.expires_at
+    )
+
+
+@router.get("/tokens", response_model=list[TokenOut])
+def list_tokens(
+    org_id: uuid.UUID = Depends(org_context),
+    db: DbSession = Depends(get_db),
+    user: User = Depends(current_user),
+) -> list[TokenOut]:
+    return [TokenOut.model_validate(p) for p in auth_service.list_pats(db, user.id, org_id)]
+
+
+@router.delete("/tokens/{token_id}", status_code=204)
+def revoke_token(
+    token_id: uuid.UUID,
+    org_id: uuid.UUID = Depends(org_context),
+    db: DbSession = Depends(get_db),
+    user: User = Depends(current_user),
+) -> None:
+    auth_service.revoke_pat(db, user.id, org_id, token_id)

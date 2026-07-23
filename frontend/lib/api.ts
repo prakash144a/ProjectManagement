@@ -185,6 +185,18 @@ export interface DashboardData {
   projects: ProjectHealth[];
 }
 
+// --- personal access tokens (MCP) ---
+export interface ApiToken {
+  id: UUID;
+  name: string | null;
+  created_at: string;
+  last_used_at: string | null;
+  expires_at: string;
+}
+export interface ApiTokenCreated extends ApiToken {
+  token: string; // shown once
+}
+
 // --- chat agent ---
 export interface ChatAction {
   tool: string;
@@ -381,6 +393,12 @@ export const api = {
   chat: {
     send: (message: string, history: { role: string; content: string }[]) =>
       request<ChatReply>("POST", "/chat", { body: { message, history } }),
+  },
+  tokens: {
+    list: () => request<ApiToken[]>("GET", "/auth/tokens"),
+    create: (name: string) =>
+      request<ApiTokenCreated>("POST", "/auth/tokens", { body: { name } }),
+    remove: (id: string) => request<void>("DELETE", `/auth/tokens/${id}`),
   },
   metrics: {
     myTasks: () => request<MyTask[]>("GET", "/my-tasks"),

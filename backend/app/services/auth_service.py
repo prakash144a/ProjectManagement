@@ -8,6 +8,7 @@ from __future__ import annotations
 
 import logging
 import re
+import uuid
 from datetime import timedelta
 
 from sqlalchemy import select
@@ -17,7 +18,7 @@ from app.config import settings
 from app.core import security
 from app.core.rate_limit import rate_limiter
 from app.db.base import utcnow
-from app.errors import BadRequest, RateLimited, Unauthorized
+from app.errors import BadRequest, NotFound, RateLimited, Unauthorized
 from app.models.auth import OneTimeCode, Session
 from app.models.enums import Channel
 from app.models.identity import User
@@ -171,4 +172,54 @@ def resolve_session(db: DbSession, raw_token: str) -> tuple[Session, User] | Non
 
 def revoke_session(db: DbSession, session: Session) -> None:
     session.revoked_at = utcnow()
+    db.flush()
+
+
+# --- Personal Access Tokens (long-lived, org-scoped; used by the MCP server) ---
+
+
+def create_pat(
+    db: DbSession, user_id: uuid.UUID, org_id: uuid.UUID, name: str
+) -> tuple[Session, str]:
+    raw_token = security.generate_session_token()
+    pat = Session(
+        user_id=user_id,
+        token_hash=security.hash_token(raw_token),
+        expires_at=utcnow() + timedelta(days=settings.PAT_TTL_DAYS),
+        kind="pat",
+        name=(name or "token").strip()[:100],
+        organization_id=org_id,
+    )
+    db.add(pat)
+    db.flush()
+    return pat, raw_token
+
+
+def list_pats(db: DbSession, user_id: uuid.UUID, org_id: uuid.UUID) -> list[Session]:
+    return list(
+        db.scalars(
+            select(Session)
+            .where(
+                Session.user_id == user_id,
+                Session.kind == "pat",
+                Session.organization_id == org_id,
+                Session.revoked_at.is_(None),
+            )
+            .order_by(Session.created_at.desc())
+        )
+    )
+
+
+def revoke_pat(
+    db: DbSession, user_id: uuid.UUID, org_id: uuid.UUID, token_id: uuid.UUID
+) -> None:
+    pat = db.get(Session, token_id)
+    if (
+        pat is None
+        or pat.kind != "pat"
+        or pat.user_id != user_id
+        or pat.organization_id != org_id
+    ):
+        raise NotFound("Token not found.")
+    pat.revoked_at = utcnow()
     db.flush()

@@ -12,7 +12,7 @@ from fastapi import Depends, Header, Request
 from sqlalchemy.orm import Session as DbSession
 
 from app.db.session import get_db, set_current_org, set_current_user
-from app.errors import Forbidden, Unauthorized
+from app.errors import BadRequest, Forbidden, Unauthorized
 from app.models.auth import Session
 from app.models.identity import User
 from app.services import auth_service, authz
@@ -54,13 +54,23 @@ def current_session(auth: tuple[Session, User] = Depends(get_auth)) -> Session:
 
 
 def org_context(
-    x_org_id: uuid.UUID = Header(alias="X-Org-Id"),
+    x_org_id: uuid.UUID | None = Header(default=None, alias="X-Org-Id"),
+    auth: tuple[Session, User] = Depends(get_auth),
     db: DbSession = Depends(get_db),
-    user: User = Depends(current_user),
 ) -> uuid.UUID:
     """Select the active organization for a request: set the RLS org context and
-    verify the caller is a member. Per-object role checks happen in the services."""
-    set_current_org(db, x_org_id)
-    if not authz.is_org_member(db, user.id, x_org_id):
+    verify the caller is a member. Per-object role checks happen in the services.
+
+    A Personal Access Token is org-scoped, so it selects its own org and the
+    X-Org-Id header is optional; a normal session must supply the header."""
+    session, user = auth
+    if session.kind == "pat" and session.organization_id is not None:
+        org_id = session.organization_id
+    elif x_org_id is not None:
+        org_id = x_org_id
+    else:
+        raise BadRequest("X-Org-Id header is required.")
+    set_current_org(db, org_id)
+    if not authz.is_org_member(db, user.id, org_id):
         raise Forbidden("You are not a member of this organization.")
-    return x_org_id
+    return org_id

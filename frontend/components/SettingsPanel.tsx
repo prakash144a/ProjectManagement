@@ -5,6 +5,7 @@ import { OrgSettings } from "./OrgSettings";
 import { StatusSettings } from "./StatusSettings";
 import { UsersSettings } from "./UsersSettings";
 import { TeamsSettings } from "./TeamsSettings";
+import { TokensSettings } from "./TokensSettings";
 
 // App-wide settings. Sections are listed on the left; more (Profile, Billing)
 // slot in here later.
@@ -13,6 +14,7 @@ const SECTIONS = [
   { id: "teams", label: "Teams & Groups" },
   { id: "statuses", label: "Statuses" },
   { id: "users", label: "Users" },
+  { id: "tokens", label: "API Tokens" },
 ] as const;
 type SectionId = (typeof SECTIONS)[number]["id"];
 
@@ -54,6 +56,7 @@ export function SettingsPanel({ orgName }: { orgName: string }) {
         {section === "teams" && <TeamsSettings />}
         {section === "statuses" && <StatusSettings />}
         {section === "users" && <UsersSettings />}
+        {section === "tokens" && <TokensSettings />}
       </div>
     </div>
   );

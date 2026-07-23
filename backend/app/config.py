@@ -34,6 +34,7 @@ class Settings(BaseSettings):
 
     # --- Auth / OTP ---
     SESSION_TTL_DAYS: int = 30
+    PAT_TTL_DAYS: int = 365  # Personal Access Tokens are long-lived (MCP)
     OTP_TTL_MINUTES: int = 10
     OTP_MAX_ATTEMPTS: int = 5
     OTP_LENGTH: int = 6

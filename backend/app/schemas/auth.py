@@ -40,3 +40,28 @@ class UserOut(BaseModel):
     email: str | None
     mobile: str | None
     display_name: str | None
+
+
+# --- Personal Access Tokens (for MCP) ---
+class TokenCreate(BaseModel):
+    name: str = Field(min_length=1, max_length=100)
+
+
+class TokenCreated(BaseModel):
+    """Returned once, on creation — the plaintext token is never shown again."""
+
+    id: uuid.UUID
+    name: str | None
+    token: str
+    created_at: datetime
+    expires_at: datetime
+
+
+class TokenOut(BaseModel):
+    model_config = ConfigDict(from_attributes=True)
+
+    id: uuid.UUID
+    name: str | None
+    created_at: datetime
+    last_used_at: datetime | None
+    expires_at: datetime

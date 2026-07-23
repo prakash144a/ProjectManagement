@@ -47,3 +47,10 @@ class Session(Base):
         DateTime(timezone=True), server_default=func.now(), nullable=False
     )
     last_used_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
+    # A login session ("session") or a long-lived Personal Access Token ("pat").
+    # A PAT is org-scoped so callers (e.g. the MCP server) needn't pass X-Org-Id.
+    kind: Mapped[str] = mapped_column(String(20), nullable=False, server_default="session")
+    name: Mapped[str | None] = mapped_column(String(100))
+    organization_id: Mapped[uuid.UUID | None] = mapped_column(
+        ForeignKey("organization.id", ondelete="CASCADE")
+    )
