@@ -14,9 +14,18 @@ import pytest
 from fastapi.testclient import TestClient
 from sqlalchemy import text
 
+from app.config import settings
 from app.core.rate_limit import rate_limiter
 from app.db.engine import engine
 from app.main import app
+
+
+@pytest.fixture(scope="session", autouse=True)
+def _no_inline_embedding():
+    # Tests shouldn't call the embedding API (quota/latency); retrieval has its
+    # own coverage. Disable inline indexing for the whole test session.
+    settings.RETRIEVAL_INLINE_INDEX = False
+    yield
 
 
 @pytest.fixture(autouse=True)

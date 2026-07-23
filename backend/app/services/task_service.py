@@ -12,8 +12,12 @@ from app.db.base import utcnow
 from app.errors import BadRequest, Forbidden, NotFound
 from app.models.enums import Priority, Role
 from app.models.work import Project, ProjectTaskGroup, Task, TaskStatus
-from app.services import audit, authz, notification_service
+from app.services import audit, authz, embedding_service, notification_service
 from app.services.project_service import get_project
+
+
+def _index_text(task: Task) -> str:
+    return f"{task.title}\n{task.description or ''}".strip()
 
 
 def _default_status(db: DbSession, org_id: uuid.UUID) -> TaskStatus | None:
@@ -105,6 +109,7 @@ def create_task(
             type_="task_assigned", ref_type="task", ref_id=task.id,
         )
     db.flush()
+    embedding_service.index_source(db, org_id, embedding_service.TASK, task.id, _index_text(task))
     return task
 
 
@@ -177,6 +182,10 @@ def update_task(
                 db, org_id=org_id, recipient_id=task.assignee_id,
                 type_="task_assigned", ref_type="task", ref_id=task.id,
             )
+        if "title" in applied or "description" in applied:
+            embedding_service.index_source(
+                db, org_id, embedding_service.TASK, task.id, _index_text(task)
+            )
     db.flush()
     return task
 
@@ -245,3 +254,4 @@ def delete_task(
     )
     db.delete(task)
     db.flush()
+    embedding_service.delete_source(db, org_id, embedding_service.TASK, task.id)

@@ -11,7 +11,7 @@ from app.errors import BadRequest, NotFound
 from app.models.enums import GroupType, Role
 from app.models.identity import Group
 from app.models.work import Project, ProjectTaskGroup, TaskGroupDefinition
-from app.services import audit, authz
+from app.services import audit, authz, embedding_service
 
 
 def _get_team(db: DbSession, org_id: uuid.UUID, team_id: uuid.UUID) -> Group:
@@ -83,6 +83,9 @@ def create_project(
         data={"name": name, "team_id": str(team.id)},
     )
     db.flush()
+    embedding_service.index_source(
+        db, org_id, embedding_service.PROJECT, proj.id, f"{proj.name}\n{proj.description or ''}".strip()
+    )
     return proj
 
 

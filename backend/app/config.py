@@ -56,6 +56,13 @@ class Settings(BaseSettings):
     # Safety cap on the tool-calling loop (tool round-trips per user message).
     AGENT_MAX_STEPS: int = 8
 
+    # --- Retrieval / "ask anything" (A1) ---
+    GEMINI_EMBED_MODEL: str = "gemini-embedding-001"
+    EMBED_DIM: int = 768  # <=2000 so it's indexable by pgvector hnsw/ivfflat
+    # Embed content inline on create/update (best-effort). Turn off to rely only
+    # on the reindex script if embedding quota becomes a constraint.
+    RETRIEVAL_INLINE_INDEX: bool = True
+
     @property
     def ai_enabled(self) -> bool:
         return bool(self.GEMINI_API_KEY.strip())

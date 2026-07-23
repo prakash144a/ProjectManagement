@@ -242,6 +242,14 @@ class ChatOut(BaseModel):
     actions: list[ChatAction] = Field(default_factory=list)
 
 
+# --- Retrieval / search (A1) ---
+class SearchHit(BaseModel):
+    source_type: str  # task | project | comment
+    source_id: uuid.UUID
+    content: str
+    score: float
+
+
 class TaskOut(ORMModel):
     id: uuid.UUID
     organization_id: uuid.UUID

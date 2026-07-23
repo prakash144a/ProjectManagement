@@ -27,6 +27,7 @@ from app.models.work import Task
 from app.services import (
     authz,
     catalog_service,
+    embedding_service,
     metrics_service,
     project_service,
     task_service,
@@ -235,6 +236,14 @@ def _delete_task(ctx: ToolContext, args: dict) -> Any:
     return {"deleted": True, "task_id": str(task_id)}
 
 
+def _search(ctx: ToolContext, args: dict) -> Any:
+    query = (args.get("query") or "").strip()
+    if not query:
+        raise BadRequest("'query' is required.")
+    limit = args.get("limit") or 8
+    return embedding_service.search(ctx.db, ctx.org_id, query, limit=int(limit))
+
+
 def _create_project(ctx: ToolContext, args: dict) -> Any:
     team_id = _req_uuid(args, "team_id")
     name = (args.get("name") or "").strip()
@@ -281,6 +290,22 @@ TOOLS: list[Tool] = [
         "List tasks assigned to the current user across all their projects.",
         {"type": "object", "properties": {}},
         _my_tasks,
+    ),
+    Tool(
+        "search",
+        "Semantic search across the organization's tasks, projects, and comments to "
+        "answer questions about existing work (e.g. 'what did we decide about the launch', "
+        "'find tasks mentioning the API'). Returns matching snippets with source_type "
+        "('task'|'project'|'comment') and source_id.",
+        {
+            "type": "object",
+            "properties": {
+                "query": {"type": "string"},
+                "limit": {"type": "integer", "description": "Max results (default 8)."},
+            },
+            "required": ["query"],
+        },
+        _search,
     ),
     Tool(
         "list_statuses",

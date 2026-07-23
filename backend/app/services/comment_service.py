@@ -11,7 +11,7 @@ from app.errors import Forbidden, NotFound
 from app.models.collab import ProjectComment, TaskComment
 from app.models.enums import Role
 from app.models.identity import User
-from app.services import audit, authz
+from app.services import audit, authz, embedding_service
 from app.services.project_service import get_project
 from app.services.task_service import get_task
 
@@ -62,6 +62,7 @@ def add_task_comment(
             type_="task_comment", ref_type="task", ref_id=task_id,
         )
     db.flush()
+    embedding_service.index_source(db, org_id, embedding_service.COMMENT, c.id, body)
     return c, _display(db.get(User, user_id))
 
 
@@ -78,8 +79,10 @@ def delete_task_comment(
     )
     if c.author_id != user_id and (role is None or Role.RANK.get(role, 0) < Role.RANK[Role.ADMIN]):
         raise Forbidden("You can only delete your own comments.")
+    cid = c.id
     db.delete(c)
     db.flush()
+    embedding_service.delete_source(db, org_id, embedding_service.COMMENT, cid)
 
 
 # --- Project comments ---
@@ -112,6 +115,7 @@ def add_project_comment(
     )
     db.add(c)
     db.flush()
+    embedding_service.index_source(db, org_id, embedding_service.COMMENT, c.id, body)
     return c, _display(db.get(User, user_id))
 
 
@@ -127,5 +131,7 @@ def delete_project_comment(
     )
     if c.author_id != user_id and (role is None or Role.RANK.get(role, 0) < Role.RANK[Role.ADMIN]):
         raise Forbidden("You can only delete your own comments.")
+    cid = c.id
     db.delete(c)
     db.flush()
+    embedding_service.delete_source(db, org_id, embedding_service.COMMENT, cid)

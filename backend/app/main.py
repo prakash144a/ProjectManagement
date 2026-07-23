@@ -19,6 +19,7 @@ from app.api.routers import (
     notifications,
     organizations,
     projects,
+    search,
     security,
     tasks,
     teams,
@@ -70,6 +71,7 @@ def create_app() -> FastAPI:
     app.include_router(metrics.router)
     app.include_router(chat.router)
     app.include_router(voice.router)
+    app.include_router(search.router)
     return app
 
 
