@@ -1,98 +1,73 @@
 # Roadmap & Next Milestones
 
-_Living plan for resuming work across sessions. Last updated 2026-07-22._
+_Living plan for resuming work across sessions. Last updated 2026-07-23._
 
 ## Status — done & committed
 Phase 1 GUI · Phase 2 chat agent + **A1 retrieval** (pgvector, live) · Phase 3 **voice**
-(Gemini Live) · design-system passes 1–2 · dedicated `/chat` page + localStorage
-persistence · **standalone MCP server + Personal Access Tokens** · **Azure Container
-Apps deployment files** (`infra/`). Runs locally as 3 processes: REST `:8000`,
-MCP `:8100`, web `:3000`. Models: `gemini-flash-latest` (chat),
-`gemini-2.5-flash-native-audio-latest` (voice), `gemini-embedding-001` @768 (retrieval).
+(Gemini Live) · design-system passes 1–2 · `/chat` page + localStorage persistence ·
+**standalone MCP server + Personal Access Tokens** · **email OTP delivery** (ACS) ·
+**deployed & live on Azure Container Apps**.
+Models: `gemini-flash-latest` (chat), `gemini-2.5-flash-native-audio-latest` (voice),
+`gemini-embedding-001` @768 (retrieval).
+
+**✅ Live (2026-07-23)** — Azure Container Apps, RG `ProjectManagement`, westus, prefix
+`pmapp144`. Verified end-to-end (prod OTP request → Postgres → Key Vault secret → ACS email).
+- web: `https://pmapp144-web.niceriver-14f262ea.westus.azurecontainerapps.io`
+- api: `https://pmapp144-api.niceriver-14f262ea.westus.azurecontainerapps.io`
+- mcp: `https://pmapp144-mcp.niceriver-14f262ea.westus.azurecontainerapps.io/mcp`
+Deploy = `infra/oneTimeScripts/kvSecrets_Prod.sh` (gitignored; KV+identity+secrets from
+`.env`) then `infra/deploy.sh` (ACR+images+Bicep). Windows/Git-Bash az gotchas captured
+in the `deployment` memory + `infra/DEPLOY.md`.
+
+**✅ Email OTP delivery** — `app/services/messaging.py` → `deliver_otp()` sends via ACS when
+configured, else dev-logs; wired into `auth_service.request_code`; send failure rolls the
+request back. SMS stubbed behind the same interface (dev-logs in dev, raises in prod).
 
 ---
 
-## ✅ DONE — Email OTP delivery (live-verified 2026-07-23)
-**Decision:** email-first, **Azure Communication Services (ACS)**. SMS deferred.
-**Why:** was the prod-login blocker — OTP codes were only logged (`DEV_OTP_ECHO`); the
-OTP itself (generate/hash/store/expiry/attempt-caps/rate-limits) was already built.
-Only *delivery* was missing.
+## Next milestones
 
-**Status:** delivery seam built + tested (`app/services/messaging.py`, wired into
-`auth_service.request_code`) and **live-verified** — real send to the owner's inbox
-returned ACS HTTP 200. No ACS creds → dev-log fallback (existing tests + `dev_code`
-echo intact); with creds → real email. Provider send failure raises
-`ServiceUnavailable`, request rolls back (no orphaned code). SMS dev-logs in dev,
-raises in prod. `azure-communication-email` added to deps. ACS creds live in `.env`
-(sender = the Azure-managed `...azurecomm.net` domain). **Remaining for prod: set
-`DEV_OTP_ECHO=false` and put the ACS creds in Key Vault at deploy time.**
+### A. Post-launch hardening (do soon — prod is live)
+1. **Least-privilege DB role** _(top priority — real security gap)._ `prakash` has
+   `BYPASSRLS` → RLS is inert. New role without bypassrls + table grants, point
+   `DATABASE_URL` at it → tenant isolation actually enforced.
+2. **Tighten DB firewall** — remove the wide-open `AllowAll` (0.0.0.0–255.255.255.255)
+   rule on `pmdb`; env egress IP `20.237.136.97` already allow-listed (`containerapps-pmapp144`).
+3. **Registry/identity hardening** — ACR pulls from admin creds → managed identity `AcrPull`; drop admin password.
+4. **Separate prod DB** — prod shares the Azure Postgres with dev/tests today.
+5. **Custom domains** — `app.`/`api.`/`mcp.` for stable URLs (also removes frontend rebuild-on-URL friction).
 
-**Owner setup (Azure) — needed for live test:**
-1. Create an **Azure Communication Services** resource.
-2. Add an **Email Communication Service** + a **verified sender domain** (the
-   Azure-managed subdomain is the quick option; custom domain needs DNS/SPF/DKIM).
-3. Put in `.env` (local) / Key Vault (prod):
-   - `ACS_EMAIL_CONNECTION_STRING=...`
-   - `ACS_EMAIL_SENDER=DoNotReply@<your-verified-domain>`
+### B. Feature backlog (priority order)
+6. **DB-backed chat history** — `conversation` + `message` tables (RLS); list/reopen past
+   chats, cross-device. Replaces per-device localStorage single conversation.
+7. **Per-workspace AI on/off flag** + per-workspace model endpoint. AI is always-on today.
+8. **MCP OAuth 2.1** — one-click Claude/ChatGPT connect (PAT built; OAuth is the upgrade).
+9. **SMS OTP** — second channel (Twilio/ACS SMS; needs number + A2P/toll-free registration).
+10. **Mobile app** — React Native / Expo (calls the live api URL; store-distributed).
+11. **Billing** — Stripe on the Organization boundary.
+12. **Design polish** — avatars + greeting, 3-column dashboard w/ insights panel, per-KPI
+    trend deltas, restyle TaskDetail/comments/bell/filter bar. _(AI exec-summary strip declined.)_
 
-**Build (code) — was about to start:**
-- `pip install azure-communication-email`; add to `backend/pyproject.toml`.
-- `config.py`: add `ACS_EMAIL_CONNECTION_STRING`, `ACS_EMAIL_SENDER`, `APP_NAME`,
-  and an `email_enabled` property (`bool(conn_str and sender)`).
-- New `app/services/messaging.py` → `deliver_otp(channel, target, code)`:
-  ACS email if configured (`EmailClient.from_connection_string`, `begin_send` +
-  `poller.result()`), else **dev-log fallback**. Returns whether a provider was used;
-  raises on provider send failure.
-- Wire `auth_service.request_code` to call `messaging.deliver_otp` (replace the inline
-  log). On provider failure → clear error ("couldn't send code, try again");
-  transaction rolls back so no orphaned code. Keep `DEV_OTP_ECHO` echo intact.
-- `.env.example`: add the two `ACS_EMAIL_*` vars.
-- Verify: existing tests still pass (no provider → console fallback + `dev_code`);
-  unit-test message building; live-test once owner adds ACS creds.
-- **SMS** later behind the same interface (Twilio or ACS SMS; needs a number +
-  A2P/toll-free registration + per-msg cost).
-
----
-
-## Milestone backlog (priority order)
-1. **Email OTP** (above) — code done; unblocks prod login once ACS creds are added.
-2. **DB hardening — least-privilege app role.** `prakash` has `BYPASSRLS`, so RLS is
-   inert. Create a role WITHOUT bypassrls, grant table privileges, point
-   `DATABASE_URL` at it → RLS actually enforces tenant isolation.
-3. **Azure deployment.** Fill placeholders (subscription id, resource group, ACR name)
-   in `infra/deploy.sh`/`main.parameters.json`; run `infra/deploy.sh`; then
-   `alembic upgrade head` in the api container. Custom domains recommended (stable
-   `NEXT_PUBLIC_*` build args). See `infra/DEPLOY.md`.
-4. **DB-backed chat history** (the deferred "server-side, later"): `conversation` +
-   `message` tables (RLS), list/reopen past chats, cross-device. Replaces the current
-   per-device localStorage single conversation.
-5. **Per-workspace AI on/off flag** + per-workspace model endpoint (compliance
-   escape-hatch). AI is always-on today.
-6. **MCP OAuth 2.1** — one-click Claude/ChatGPT connect (PAT is built; OAuth is the
-   consumer-client upgrade).
-7. **SMS OTP** — second channel (Twilio/ACS SMS).
-8. **Mobile app** — React Native / Expo (calls REST; store-distributed).
-9. **Billing** — Stripe on the Organization boundary.
-10. **Design polish** — avatars + greeting, 3-column dashboard w/ right insights panel,
-    per-KPI trend deltas, restyle remaining components (TaskDetail, comments, bell,
-    filter bar). _(AI executive-summary strip was declined.)_
-11. **North-star (only if asked):** autonomous scheduled prompts; realtime/eventing.
+### C. North-star (only if asked)
+13. **Autonomous scheduled prompts** (schedule any NL prompt; runs as the user; skips unsafe actions).
+14. **Realtime & eventing** (live updates instead of refresh).
 
 ---
 
 ## Owner action checklist (external dependencies)
-- [x] **ACS** resource + email domain + connection string + sender → `.env` (live-verified 2026-07-23)
-- [ ] **Azure deploy**: subscription id, resource group, ACR name
-- [ ] **DB**: create least-privilege role (no `BYPASSRLS`), grant, new `DATABASE_URL`
-- [x] `VECTOR` allow-listed in `azure.extensions` (done — A1 live)
+- [x] **ACS** email (resource + verified sender + creds) — live-verified 2026-07-23
+- [x] **Azure deploy** — live (sub `94c9f619-…`, RG `ProjectManagement`, ACR `pmapp144`)
+- [x] `VECTOR` allow-listed in `azure.extensions` (A1 live)
+- [ ] **DB**: least-privilege role (no `BYPASSRLS`), grant, new `DATABASE_URL`
+- [ ] **DB firewall**: remove `AllowAll` rule on `pmdb`
 - [ ] **SMS** provider + number (later)
 - [ ] **Stripe** account (later, billing)
 
 ## Standing context / gotchas
-- Run backend **without `--reload`** (it stalls); restart manually after backend edits.
-- **Two backend processes**: REST `uvicorn app.main:app` (:8000), MCP
-  `uvicorn mcp_server.server:app` (:8100). Frontend `npm run dev` (:3000).
-- **Gemini free-tier limits**: chat ~5 req/min, plus embedding/Live quotas → paid tier
-  for real load. Pinned `gemini-2.5-flash` is blocked for new keys; use `-latest` aliases.
-- Secrets live only in gitignored `.env` (never committed; `.env.example` is the template).
-- Migrations are additive now (`0001` baseline metadata; `0002` pgvector; `0003` PAT).
+- **Prod deploy** needs Windows + `az.cmd` via Git Bash/PowerShell, MFA login
+  (`--tenant c6d76bd5-…`); scripts handle MSYS path conversion, `az acr build --no-logs`,
+  RBAC `--subscription`, `Microsoft.App` provider registration. See `deployment` memory.
+- Local backend: run **without `--reload`** (stalls); REST `:8000`, MCP `:8100`, web `:3000`.
+- **Gemini free-tier limits**: chat ~5 req/min; use `-latest` model aliases (pinned names blocked for new keys).
+- Secrets only in gitignored `.env` (`.env.example` is the template); prod secrets in Key Vault `pmapp144-kv`.
+- Migrations additive: `0001` baseline · `0002` pgvector · `0003` PAT (DB at head).
