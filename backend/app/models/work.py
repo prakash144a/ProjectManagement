@@ -122,6 +122,11 @@ class Task(Base, TimestampMixin):
         ForeignKey("task_status.id", ondelete="SET NULL"), index=True
     )
     priority: Mapped[str] = mapped_column(String(10), nullable=False, default="none")
+    # Self-reported completion, 0..100. Auto-set to 100 when the task enters a
+    # completed status (see task_service). Independent of status otherwise.
+    progress: Mapped[int] = mapped_column(
+        Integer, nullable=False, default=0, server_default="0"
+    )
     assignee_id: Mapped[uuid.UUID | None] = mapped_column(
         ForeignKey("app_user.id", ondelete="SET NULL"), index=True
     )

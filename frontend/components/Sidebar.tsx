@@ -2,6 +2,7 @@
 
 import { useState } from "react";
 import { Org, Project, Team } from "@/lib/api";
+import { ProjectIcon } from "./ui";
 
 function AddInline({
   placeholder,
@@ -143,10 +144,12 @@ function NavItem({
 
 function ProjectRow({
   label,
+  seed,
   active,
   onClick,
 }: {
   label: string;
+  seed: string;
   active: boolean;
   onClick: () => void;
 }) {
@@ -155,17 +158,20 @@ function ProjectRow({
       onClick={onClick}
       className="list-row"
       style={{
-        padding: "6px 10px",
+        display: "flex",
+        alignItems: "center",
+        gap: 8,
+        padding: "6px 8px",
         borderRadius: 6,
         cursor: "pointer",
         background: active ? "var(--surface-2)" : "transparent",
         fontWeight: active ? 600 : 400,
-        whiteSpace: "nowrap",
-        overflow: "hidden",
-        textOverflow: "ellipsis",
       }}
     >
-      {label}
+      <ProjectIcon seed={seed} size={22} />
+      <span style={{ minWidth: 0, whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>
+        {label}
+      </span>
     </div>
   );
 }
@@ -218,13 +224,13 @@ export function Sidebar(props: {
         {props.selectedOrgId && (
           <div style={{ marginBottom: 14 }}>
             <NavItem
-              icon="✓"
+              icon="🎯"
               label="My Tasks"
               active={props.myTasksActive}
               onClick={props.onOpenMyTasks}
             />
             <NavItem
-              icon="▤"
+              icon="📊"
               label="Dashboard"
               active={props.dashboardActive}
               onClick={props.onOpenDashboard}
@@ -282,6 +288,7 @@ export function Sidebar(props: {
               <ProjectRow
                 key={p.id}
                 label={p.name}
+                seed={p.id}
                 active={p.id === props.selectedProjectId}
                 onClick={() => props.onSelectProject(p.id)}
               />
@@ -306,7 +313,7 @@ export function Sidebar(props: {
             border: "none",
           }}
         >
-          ⚙ Settings
+          ⚙️ Settings
         </button>
       </div>
     </aside>

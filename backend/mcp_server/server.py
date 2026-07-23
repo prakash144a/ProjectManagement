@@ -115,14 +115,17 @@ async def create_task(
     assignee_id: str = "",
     due_date: str = "",
     status_id: str = "",
+    progress: int | None = None,
 ) -> Any:
-    """Create a task in a project. Resolve ids first via the list_* tools. Dates are YYYY-MM-DD."""
+    """Create a task in a project. Resolve ids first via the list_* tools. Dates are YYYY-MM-DD.
+    progress is percent complete (0-100); it's auto-set to 100 in a completed status."""
     return await _call(
         "POST",
         "/tasks",
         json=_body(
             project_id=project_id, title=title, description=description,
             priority=priority, assignee_id=assignee_id, due_date=due_date, status_id=status_id,
+            progress=progress,
         ),
     )
 
@@ -136,14 +139,17 @@ async def update_task(
     priority: str = "",
     assignee_id: str = "",
     due_date: str = "",
+    progress: int | None = None,
 ) -> Any:
-    """Update fields on a task (only include what changes). Use a completed status_id to mark it done."""
+    """Update fields on a task (only include what changes). Use a completed status_id to mark it
+    done (which also sets progress to 100). Set progress (0-100) to report partial completion."""
     return await _call(
         "PATCH",
         f"/tasks/{task_id}",
         json=_body(
             title=title, description=description, status_id=status_id,
             priority=priority, assignee_id=assignee_id, due_date=due_date,
+            progress=progress,
         ),
     )
 

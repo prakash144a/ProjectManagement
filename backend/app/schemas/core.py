@@ -81,6 +81,7 @@ class TaskCreate(BaseModel):
     description: str | None = None
     status_id: uuid.UUID | None = None
     priority: str = "none"
+    progress: int = Field(default=0, ge=0, le=100)
     assignee_id: uuid.UUID | None = None
     project_task_group_id: uuid.UUID | None = None
     start_date: date | None = None
@@ -92,6 +93,7 @@ class TaskUpdate(BaseModel):
     description: str | None = None
     status_id: uuid.UUID | None = None
     priority: str | None = None
+    progress: int | None = Field(default=None, ge=0, le=100)
     assignee_id: uuid.UUID | None = None
     project_task_group_id: uuid.UUID | None = None
     start_date: date | None = None
@@ -259,6 +261,7 @@ class TaskOut(ORMModel):
     description: str | None
     status_id: uuid.UUID | None
     priority: str
+    progress: int
     assignee_id: uuid.UUID | None
     created_by: uuid.UUID | None
     rank: str | None
@@ -297,9 +300,20 @@ class ProjectHealth(BaseModel):
     task_count: int
     done_count: int
     completion_rate: float
+    progress: int  # avg of task progress bars, 0..100
+    status: str  # not_started | in_progress | done (derived rollup)
     overdue_count: int
     due_this_week: int
     health: str  # on_track | at_risk | overdue
+
+
+class DashboardTrends(BaseModel):
+    """Period-over-period signals: last 7 days vs the 7 days before that."""
+
+    completed_this_week: int
+    completed_prev_week: int
+    created_this_week: int
+    created_prev_week: int
 
 
 class DashboardOut(BaseModel):
@@ -314,3 +328,4 @@ class DashboardOut(BaseModel):
     tasks_by_status: list[StatusCount]
     throughput: list[ThroughputPoint]
     projects: list[ProjectHealth]
+    trends: DashboardTrends

@@ -76,15 +76,12 @@ export function ProfileMenu() {
       {open && (
         <div
           role="menu"
+          className="popover animate-pop"
           style={{
             position: "absolute",
-            top: 40,
+            top: 42,
             right: 0,
             minWidth: 200,
-            background: "var(--surface)",
-            border: "1px solid var(--border)",
-            borderRadius: 8,
-            boxShadow: "0 6px 24px rgba(0,0,0,0.18)",
             padding: 6,
             zIndex: 50,
           }}

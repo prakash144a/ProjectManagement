@@ -3,14 +3,19 @@
 import { useTheme } from "@/lib/theme";
 import { NotificationsBell } from "./NotificationsBell";
 import { ProfileMenu } from "./ProfileMenu";
+import { ProjectIcon } from "./ui";
 
 export function Header({
   onToggleSidebar,
   title,
+  titleSeed,
+  titleEmoji,
   orgId,
 }: {
   onToggleSidebar: () => void;
   title: string;
+  titleSeed?: string | null;
+  titleEmoji?: string | null;
   orgId: string | null;
 }) {
   const { theme, toggle } = useTheme();
@@ -27,12 +32,38 @@ export function Header({
         background: "var(--surface)",
       }}
     >
-      <button onClick={onToggleSidebar} title="Toggle menu" aria-label="Toggle menu">
+      <button className="icon-btn" onClick={onToggleSidebar} title="Toggle menu" aria-label="Toggle menu" style={{ fontSize: 16 }}>
         ☰
       </button>
-      <strong style={{ flex: 1 }}>{title}</strong>
+      <span style={{ flex: 1, minWidth: 0, display: "inline-flex", alignItems: "center", gap: 9 }}>
+        {titleSeed ? (
+          <ProjectIcon seed={titleSeed} size={26} />
+        ) : titleEmoji ? (
+          <span
+            aria-hidden
+            style={{
+              width: 26,
+              height: 26,
+              display: "inline-flex",
+              alignItems: "center",
+              justifyContent: "center",
+              flexShrink: 0,
+              borderRadius: 7,
+              fontSize: 15,
+              lineHeight: 1,
+              background: "var(--surface-2)",
+              border: "1px solid var(--border)",
+            }}
+          >
+            {titleEmoji}
+          </span>
+        ) : null}
+        <strong style={{ fontSize: 15, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
+          {title}
+        </strong>
+      </span>
       {orgId && <NotificationsBell key={orgId} />}
-      <button onClick={toggle} title="Toggle theme">
+      <button className="icon-btn" onClick={toggle} title="Toggle theme" aria-label="Toggle theme" style={{ fontSize: 16 }}>
         {theme === "light" ? "🌙" : "☀️"}
       </button>
       <ProfileMenu />

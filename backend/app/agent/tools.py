@@ -123,6 +123,7 @@ def _task_dict(t: Task, status_names: dict[uuid.UUID, str]) -> dict:
         "status": status_names.get(t.status_id) if t.status_id else None,
         "status_id": str(t.status_id) if t.status_id else None,
         "priority": t.priority,
+        "progress": t.progress,
         "assignee_id": str(t.assignee_id) if t.assignee_id else None,
         "due_date": t.due_date.isoformat() if t.due_date else None,
         "start_date": t.start_date.isoformat() if t.start_date else None,
@@ -188,6 +189,15 @@ def _list_members(ctx: ToolContext, args: dict) -> Any:
     return [_member_dict(u, role) for u, role in user_service.list_members(ctx.db, ctx.org_id)]
 
 
+def _opt_progress(val: Any) -> int:
+    if val is None or val == "":
+        return 0
+    try:
+        return max(0, min(100, int(val)))
+    except (ValueError, TypeError):
+        raise BadRequest("'progress' must be a number between 0 and 100.")
+
+
 def _create_task(ctx: ToolContext, args: dict) -> Any:
     project_id = _req_uuid(args, "project_id")
     title = (args.get("title") or "").strip()
@@ -202,6 +212,7 @@ def _create_task(ctx: ToolContext, args: dict) -> Any:
         description=args.get("description"),
         status_id=_opt_uuid(args.get("status_id")),
         priority=args.get("priority") or "none",
+        progress=_opt_progress(args.get("progress")),
         assignee_id=_opt_uuid(args.get("assignee_id")),
         due_date=_opt_date(args.get("due_date")),
         start_date=_opt_date(args.get("start_date")),
@@ -215,6 +226,8 @@ def _update_task(ctx: ToolContext, args: dict) -> Any:
     for k in ("title", "description", "priority"):
         if k in args:
             changes[k] = args[k]
+    if "progress" in args:
+        changes["progress"] = _opt_progress(args["progress"])
     if "status_id" in args:
         changes["status_id"] = _opt_uuid(args["status_id"])
     if "assignee_id" in args:
@@ -330,6 +343,12 @@ TOOLS: list[Tool] = [
                 "description": {"type": "string"},
                 "status_id": {"type": "string"},
                 "priority": {"type": "string", "enum": _PRIORITY_ENUM},
+                "progress": {
+                    "type": "integer",
+                    "minimum": 0,
+                    "maximum": 100,
+                    "description": "Percent complete (0-100). Auto-set to 100 in a completed status.",
+                },
                 "assignee_id": {"type": "string"},
                 "due_date": {"type": "string", "description": "ISO date YYYY-MM-DD"},
                 "start_date": {"type": "string", "description": "ISO date YYYY-MM-DD"},
@@ -340,8 +359,10 @@ TOOLS: list[Tool] = [
     ),
     Tool(
         "update_task",
-        "Update fields on a task (title, description, status, priority, assignee, dates). "
-        "Only include the fields you want to change. Use a completed status_id to mark it done.",
+        "Update fields on a task (title, description, status, priority, progress, assignee, dates). "
+        "Only include the fields you want to change. Use a completed status_id to mark it done "
+        "(which also sets progress to 100). Set 'progress' (0-100) to report partial completion "
+        "without changing status.",
         {
             "type": "object",
             "properties": {
@@ -350,6 +371,12 @@ TOOLS: list[Tool] = [
                 "description": {"type": "string"},
                 "status_id": {"type": "string"},
                 "priority": {"type": "string", "enum": _PRIORITY_ENUM},
+                "progress": {
+                    "type": "integer",
+                    "minimum": 0,
+                    "maximum": 100,
+                    "description": "Percent complete (0-100). Forced to 100 when moved to a completed status.",
+                },
                 "assignee_id": {"type": "string", "description": "User id, or null to unassign."},
                 "due_date": {"type": "string", "description": "ISO date, or null to clear."},
                 "start_date": {"type": "string", "description": "ISO date, or null to clear."},

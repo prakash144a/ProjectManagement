@@ -20,6 +20,13 @@
   --pri-high-soft: rgba(180, 83, 9, 0.14);
   --pri-urg: #b91c1c;
   --pri-urg-soft: rgba(185, 28, 28, 0.12);
+  /* Motion + focus */
+  --ease: cubic-bezier(0.2, 0, 0, 1);
+  --dur: 0.16s;
+  --focus-ring: 0 0 0 2px var(--bg), 0 0 0 4px var(--primary);
+  /* Trend semantics */
+  --up: #16a34a;
+  --down: #dc2626;
 }
 
 :root[data-theme="dark"] {
@@ -40,6 +47,8 @@
   --pri-high-soft: rgba(251, 191, 36, 0.16);
   --pri-urg: #f87171;
   --pri-urg-soft: rgba(248, 113, 113, 0.16);
+  --up: #22c55e;
+  --down: #f87171;
 }
 
 * {
@@ -70,10 +79,21 @@ button {
   background: var(--surface);
   color: var(--text);
   padding: 6px 12px;
-  transition: background 0.12s, border 0.12s;
+  transition: background var(--dur) var(--ease), border-color var(--dur) var(--ease),
+    box-shadow var(--dur) var(--ease), filter var(--dur) var(--ease);
 }
 button:hover {
   background: var(--surface-2);
+}
+/* Keyboard focus ring — visible only for keyboard users, never on mouse click. */
+:focus-visible {
+  outline: none;
+  box-shadow: var(--focus-ring);
+}
+button:focus-visible,
+[role="button"]:focus-visible,
+[tabindex]:focus-visible {
+  border-radius: 6px;
 }
 button.primary {
   background: var(--primary);
@@ -103,12 +123,19 @@ select {
   border: 1px solid var(--border);
   background: var(--surface);
   color: var(--text);
+  transition: border-color var(--dur) var(--ease), box-shadow var(--dur) var(--ease);
+}
+input:hover,
+textarea:hover,
+select:hover {
+  border-color: color-mix(in srgb, var(--text-dim) 45%, var(--border));
 }
 input:focus,
 textarea:focus,
 select:focus {
-  outline: 2px solid var(--primary);
-  outline-offset: -1px;
+  outline: none;
+  border-color: var(--primary);
+  box-shadow: 0 0 0 3px color-mix(in srgb, var(--primary) 22%, transparent);
 }
 
 label {
@@ -189,6 +216,118 @@ a {
   letter-spacing: 0.6px;
   color: var(--text-dim);
   font-weight: 600;
+}
+
+/* Loading skeletons — shimmering placeholders that match content geometry. */
+.skeleton {
+  position: relative;
+  overflow: hidden;
+  background: var(--surface-2);
+  border-radius: 6px;
+}
+.skeleton::after {
+  content: "";
+  position: absolute;
+  inset: 0;
+  transform: translateX(-100%);
+  background: linear-gradient(
+    90deg,
+    transparent,
+    color-mix(in srgb, var(--text) 6%, transparent),
+    transparent
+  );
+  animation: shimmer 1.3s var(--ease) infinite;
+}
+@keyframes shimmer {
+  100% {
+    transform: translateX(100%);
+  }
+}
+
+/* Empty states — friendly, centered placeholder for no-data views. */
+.empty-state {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  text-align: center;
+  gap: 6px;
+  padding: 40px 24px;
+  color: var(--text-dim);
+}
+.empty-state .emoji {
+  font-size: 30px;
+  line-height: 1;
+  margin-bottom: 4px;
+  opacity: 0.9;
+}
+.empty-state .title {
+  font-weight: 600;
+  color: var(--text);
+  font-size: 14px;
+}
+.empty-state .desc {
+  font-size: 13px;
+  max-width: 320px;
+}
+
+/* Avatar — initials on a deterministic soft tint; used for people everywhere. */
+.avatar {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  border-radius: 50%;
+  font-weight: 600;
+  flex-shrink: 0;
+  user-select: none;
+  line-height: 1;
+}
+
+/* Elevated dropdown/popover surface (notifications, menus). */
+.popover {
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-lg);
+  box-shadow: var(--shadow-lg);
+}
+
+/* Entrance animation for popovers/panels. */
+@keyframes pop-in {
+  from {
+    opacity: 0;
+    transform: translateY(-4px) scale(0.98);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0) scale(1);
+  }
+}
+.animate-pop {
+  animation: pop-in var(--dur) var(--ease);
+  transform-origin: top right;
+}
+
+/* Icon-only buttons (bell, theme, close) — square, borderless, subtle hover. */
+.icon-btn {
+  border: none;
+  background: transparent;
+  padding: 6px;
+  border-radius: 8px;
+  line-height: 1;
+  color: var(--text);
+}
+.icon-btn:hover {
+  background: var(--surface-2);
+}
+
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    animation-duration: 0.001ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.001ms !important;
+  }
 }
 
 /* Markdown rendered inside chat bubbles — tight spacing, theme-aware. */

@@ -52,6 +52,7 @@ def create_task(
     description: str | None = None,
     status_id: uuid.UUID | None = None,
     priority: str = Priority.NONE,
+    progress: int = 0,
     assignee_id: uuid.UUID | None = None,
     project_task_group_id: uuid.UUID | None = None,
     due_date=None,
@@ -75,6 +76,7 @@ def create_task(
         if ptg is None or ptg.project_id != proj.id:
             raise NotFound("Task group not found in this project.")
 
+    completed = status is not None and status.is_completed
     task = Task(
         organization_id=org_id,
         project_id=proj.id,
@@ -83,12 +85,14 @@ def create_task(
         description=description,
         status_id=status.id if status else None,
         priority=priority,
+        # A completed status is always 100%; otherwise honor the given value.
+        progress=100 if completed else max(0, min(100, progress)),
         assignee_id=assignee_id,
         created_by=user_id,
         start_date=start_date,
         due_date=due_date,
     )
-    if status is not None and status.is_completed:
+    if completed:
         task.completed_at = utcnow()
     db.add(task)
     db.flush()
@@ -125,11 +129,11 @@ def list_tasks(db: DbSession, org_id: uuid.UUID, project_id: uuid.UUID) -> list[
 
 
 _UPDATABLE = {
-    "title", "description", "status_id", "priority",
+    "title", "description", "status_id", "priority", "progress",
     "assignee_id", "project_task_group_id", "start_date", "due_date",
 }
 # Fields that must always hold a value (null in a PATCH is ignored for these).
-_NON_NULLABLE = {"title", "priority"}
+_NON_NULLABLE = {"title", "priority", "progress"}
 
 
 def update_task(
@@ -146,19 +150,23 @@ def update_task(
     )
 
     applied: dict[str, Any] = {}
+    became_completed = False
     for field, value in changes.items():
         if field not in _UPDATABLE:
             continue
-        # title/priority can't be cleared; other fields may be set to null
-        # (e.g. move to "Ungrouped", unassign, clear a date, no status).
+        # title/priority/progress can't be cleared; other fields may be set to
+        # null (e.g. move to "Ungrouped", unassign, clear a date, no status).
         if value is None and field in _NON_NULLABLE:
             continue
         if field == "priority" and value not in Priority.ALL:
             raise BadRequest(f"Invalid priority: {value}")
+        if field == "progress":
+            value = max(0, min(100, int(value)))
         if field == "status_id":
             if value is not None:
                 status = _get_status(db, org_id, value)
                 task.completed_at = utcnow() if status.is_completed else None
+                became_completed = status.is_completed
             else:
                 task.completed_at = None
         if field == "project_task_group_id" and value is not None:
@@ -167,6 +175,11 @@ def update_task(
                 raise NotFound("Task group not found in this project.")
         setattr(task, field, value)
         applied[field] = str(value)
+
+    # A completed status forces 100% — regardless of any progress in this patch.
+    if became_completed and task.progress != 100:
+        task.progress = 100
+        applied["progress"] = "100"
 
     if applied:
         audit.activity(

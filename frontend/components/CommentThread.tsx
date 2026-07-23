@@ -2,6 +2,19 @@
 
 import { useEffect, useState } from "react";
 import { ApiError, Comment } from "@/lib/api";
+import { Avatar, EmptyState } from "./ui";
+
+function relTime(iso: string): string {
+  const diff = Date.now() - new Date(iso).getTime();
+  const m = Math.round(diff / 60000);
+  if (m < 1) return "just now";
+  if (m < 60) return `${m}m ago`;
+  const h = Math.round(m / 60);
+  if (h < 24) return `${h}h ago`;
+  const d = Math.round(h / 24);
+  if (d < 7) return `${d}d ago`;
+  return new Date(iso).toLocaleDateString();
+}
 
 export function CommentThread({
   load,
@@ -57,38 +70,52 @@ export function CommentThread({
 
   return (
     <div>
-      <div style={{ display: "flex", flexDirection: "column", gap: 10, marginBottom: 12 }}>
-        {comments.map((c) => (
-          <div
-            key={c.id}
-            style={{
-              background: "var(--surface-2)",
-              border: "1px solid var(--border)",
-              borderRadius: 8,
-              padding: "8px 10px",
-            }}
-          >
-            <div className="row" style={{ justifyContent: "space-between", marginBottom: 2 }}>
-              <strong style={{ fontSize: 13 }}>{c.author_name || "Unknown"}</strong>
-              <span className="row" style={{ gap: 8 }}>
-                <span className="muted" style={{ fontSize: 11 }}>
-                  {new Date(c.created_at).toLocaleString()}
-                </span>
-                {c.author_id === currentUserId && (
-                  <button
-                    className="danger"
-                    onClick={() => del(c.id)}
-                    style={{ padding: "0 6px", fontSize: 11 }}
-                  >
-                    ✕
-                  </button>
-                )}
-              </span>
+      <div style={{ display: "flex", flexDirection: "column", gap: 12, marginBottom: 14 }}>
+        {comments.map((c) => {
+          const name = c.author_name || "Unknown";
+          const mine = c.author_id === currentUserId;
+          return (
+            <div key={c.id} style={{ display: "flex", gap: 10, alignItems: "flex-start" }}>
+              <Avatar name={name} seed={c.author_id || name} size={30} />
+              <div style={{ flex: 1, minWidth: 0 }}>
+                <div className="row" style={{ justifyContent: "space-between", marginBottom: 3 }}>
+                  <span style={{ display: "flex", alignItems: "baseline", gap: 7, minWidth: 0 }}>
+                    <strong style={{ fontSize: 13 }}>{name}</strong>
+                    <span className="muted" style={{ fontSize: 11 }} title={new Date(c.created_at).toLocaleString()}>
+                      {relTime(c.created_at)}
+                    </span>
+                  </span>
+                  {mine && (
+                    <button
+                      className="icon-btn"
+                      title="Delete comment"
+                      onClick={() => del(c.id)}
+                      style={{ padding: "2px 6px", fontSize: 11, color: "var(--text-dim)" }}
+                    >
+                      ✕
+                    </button>
+                  )}
+                </div>
+                <div
+                  style={{
+                    background: "var(--surface-2)",
+                    border: "1px solid var(--border)",
+                    borderRadius: "3px 10px 10px 10px",
+                    padding: "8px 11px",
+                    whiteSpace: "pre-wrap",
+                    fontSize: 13.5,
+                    lineHeight: 1.5,
+                  }}
+                >
+                  {c.body}
+                </div>
+              </div>
             </div>
-            <div style={{ whiteSpace: "pre-wrap" }}>{c.body}</div>
-          </div>
-        ))}
-        {comments.length === 0 && <div className="muted">{emptyText}</div>}
+          );
+        })}
+        {comments.length === 0 && (
+          <EmptyState emoji="💬" title={emptyText} desc="Be the first to weigh in." />
+        )}
       </div>
 
       <textarea

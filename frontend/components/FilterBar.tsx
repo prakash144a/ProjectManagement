@@ -19,15 +19,19 @@ export function FilterBar({
   onTeam: (id: string | null) => void;
   onProject: (id: string | null) => void;
 }) {
+  const sel = { width: "auto", padding: "6px 10px", fontSize: 13 } as const;
   return (
     <div
       className="row"
-      style={{ gap: 10, marginBottom: 18, flexWrap: "wrap", alignItems: "center" }}
+      style={{ gap: 8, marginBottom: 18, flexWrap: "wrap", alignItems: "center" }}
     >
-      <span style={{ fontSize: 11, textTransform: "uppercase", letterSpacing: 0.5, color: "var(--text-dim)" }}>
-        Filters
+      <span
+        className="section-label"
+        style={{ display: "inline-flex", alignItems: "center", gap: 5 }}
+      >
+        <span style={{ fontSize: 13 }}>⛃</span> Filters
       </span>
-      <select value={teamId || ""} onChange={(e) => onTeam(e.target.value || null)} style={{ width: "auto" }}>
+      <select value={teamId || ""} onChange={(e) => onTeam(e.target.value || null)} style={sel}>
         <option value="">All teams</option>
         {teams.map((t) => (
           <option key={t.id} value={t.id}>
@@ -35,7 +39,7 @@ export function FilterBar({
           </option>
         ))}
       </select>
-      <select value={projectId || ""} onChange={(e) => onProject(e.target.value || null)} style={{ width: "auto" }}>
+      <select value={projectId || ""} onChange={(e) => onProject(e.target.value || null)} style={sel}>
         <option value="">All projects</option>
         {projects.map((p) => (
           <option key={p.id} value={p.id}>
@@ -49,7 +53,7 @@ export function FilterBar({
             onTeam(null);
             onProject(null);
           }}
-          style={{ padding: "4px 10px" }}
+          style={{ padding: "5px 12px", fontSize: 13 }}
         >
           Clear
         </button>

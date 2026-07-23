@@ -44,6 +44,7 @@ def create_task(
         description=body.description,
         status_id=body.status_id,
         priority=body.priority,
+        progress=body.progress,
         assignee_id=body.assignee_id,
         project_task_group_id=body.project_task_group_id,
         start_date=body.start_date,

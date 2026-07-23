@@ -1,12 +1,13 @@
 "use client";
 
-import { useCallback, useEffect, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { useRouter } from "next/navigation";
 import {
   api,
   Member,
   Org,
   Project,
+  ProjectStatus,
   Status,
   store,
   Task,
@@ -14,6 +15,7 @@ import {
   Team,
 } from "@/lib/api";
 import { useAuth } from "@/lib/auth";
+import { Pill, ProgressBar, PROJECT_STATUS_META } from "@/components/ui";
 import { Header } from "@/components/Header";
 import { Sidebar } from "@/components/Sidebar";
 import { TaskList } from "@/components/TaskList";
@@ -56,6 +58,9 @@ export default function HomePage() {
   const [teamId, setTeamId] = useState<string | null>(null);
   const [projects, setProjects] = useState<Project[]>([]);
   const [projectId, setProjectId] = useState<string | null>(null);
+  // When navigating to a project in a different team (e.g. from the Dashboard),
+  // hold the target here until that team's projects finish loading, then select.
+  const pendingProjectRef = useRef<string | null>(null);
 
   const [statuses, setStatuses] = useState<Status[]>([]);
   const [members, setMembers] = useState<Member[]>([]);
@@ -111,13 +116,24 @@ export default function HomePage() {
     if (orgId && teamId) store.setTeam(orgId, teamId);
   }, [orgId, teamId]);
 
-  // Team selected -> load its projects.
+  // Team selected -> load its projects. If a navigation to a specific project in
+  // this team is pending (from the Dashboard), select it once projects load.
   useEffect(() => {
     if (!teamId) return;
     setProjectId(null);
     setTasks([]);
     setSelectedTask(null);
-    api.projects.list(teamId).then(setProjects).catch(fail);
+    api.projects
+      .list(teamId)
+      .then((ps) => {
+        setProjects(ps);
+        const pending = pendingProjectRef.current;
+        if (pending && ps.some((p) => p.id === pending)) {
+          setProjectId(pending);
+        }
+        pendingProjectRef.current = null;
+      })
+      .catch(fail);
   }, [teamId, fail]);
 
   // Project selected -> load its tasks + task groups.
@@ -199,6 +215,22 @@ export default function HomePage() {
     }
   };
 
+  // Navigate to a project's page from anywhere (e.g. the Dashboard). Switches
+  // team first if needed; the team-load effect then applies the pending select.
+  const openProject = useCallback(
+    (targetProjectId: string, targetTeamId: string) => {
+      setShowSecurity(false);
+      setView("tasks");
+      if (targetTeamId && targetTeamId !== teamId) {
+        pendingProjectRef.current = targetProjectId;
+        setTeamId(targetTeamId);
+      } else {
+        setProjectId(targetProjectId);
+      }
+    },
+    [teamId],
+  );
+
   const onTaskSaved = (updated: Task) => {
     setTasks((ts) => ts.map((t) => (t.id === updated.id ? updated : t)));
     setSelectedTask(updated);
@@ -214,6 +246,24 @@ export default function HomePage() {
 
   const org = orgs.find((o) => o.id === orgId) || null;
   const project = projects.find((p) => p.id === projectId) || null;
+
+  // Derived project status + progress (rolled up from the loaded tasks), shown
+  // in the project header. Cheap enough to compute inline each render.
+  const projectRollup = project
+    ? (() => {
+        const total = tasks.length;
+        const done = tasks.filter((t) => {
+          const s = t.status_id ? statuses.find((x) => x.id === t.status_id) : undefined;
+          return !!t.completed_at || !!s?.is_completed;
+        }).length;
+        const progress = total
+          ? Math.round(tasks.reduce((a, t) => a + (t.progress || 0), 0) / total)
+          : 0;
+        const status: ProjectStatus =
+          total === 0 ? "not_started" : done === total ? "done" : "in_progress";
+        return { total, done, progress, status };
+      })()
+    : null;
   const title =
     view === "settings"
       ? "Settings"
@@ -229,7 +279,21 @@ export default function HomePage() {
 
   return (
     <div style={{ display: "flex", flexDirection: "column", height: "100vh" }}>
-      <Header onToggleSidebar={() => setCollapsed((c) => !c)} title={title} orgId={orgId} />
+      <Header
+        onToggleSidebar={() => setCollapsed((c) => !c)}
+        title={title}
+        titleSeed={view === "tasks" && project ? project.id : null}
+        titleEmoji={
+          view === "mytasks"
+            ? "🎯"
+            : view === "dashboard"
+              ? "📊"
+              : view === "settings"
+                ? "⚙️"
+                : null
+        }
+        orgId={orgId}
+      />
       {error && (
         <div
           style={{ background: "var(--danger)", color: "#fff", padding: "6px 16px", fontSize: 13 }}
@@ -289,7 +353,7 @@ export default function HomePage() {
             )
           ) : view === "dashboard" ? (
             orgId ? (
-              <Dashboard key={orgId} />
+              <Dashboard key={orgId} onOpenProject={openProject} />
             ) : (
               <div style={{ padding: 40 }} className="muted">
                 Select an organization to see the dashboard.
@@ -329,6 +393,30 @@ export default function HomePage() {
                     );
                   })}
                 </div>
+                {projectRollup && !showSecurity && (
+                  <div
+                    style={{ display: "flex", alignItems: "center", gap: 10, paddingBottom: 6, marginRight: 12 }}
+                    title={`${projectRollup.done}/${projectRollup.total} tasks done · ${projectRollup.progress}% avg progress`}
+                  >
+                    <Pill color={PROJECT_STATUS_META[projectRollup.status].color} dot>
+                      {PROJECT_STATUS_META[projectRollup.status].label}
+                    </Pill>
+                    <div style={{ width: 130, display: "flex", alignItems: "center", gap: 7 }}>
+                      <ProgressBar
+                        value={projectRollup.progress}
+                        height={6}
+                        color={PROJECT_STATUS_META[projectRollup.status].color}
+                        style={{ flex: 1 }}
+                      />
+                      <span
+                        className="muted"
+                        style={{ fontSize: 11, fontVariantNumeric: "tabular-nums", width: 30, textAlign: "right" }}
+                      >
+                        {projectRollup.progress}%
+                      </span>
+                    </div>
+                  </div>
+                )}
                 <button
                   onClick={() => setShowSecurity((s) => !s)}
                   title="Security"

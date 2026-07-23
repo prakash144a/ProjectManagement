@@ -129,6 +129,7 @@ export interface Task {
   description: string | null;
   status_id: UUID | null;
   priority: string;
+  progress: number; // self-reported completion 0..100 (100 when in a done status)
   assignee_id: UUID | null;
   created_by: UUID | null;
   rank: string | null;
@@ -160,15 +161,26 @@ export interface ThroughputPoint {
   count: number;
 }
 
+export type ProjectStatus = "not_started" | "in_progress" | "done";
+
 export interface ProjectHealth {
   id: UUID;
   name: string;
   task_count: number;
   done_count: number;
   completion_rate: number;
+  progress: number; // avg of task progress bars, 0..100
+  status: ProjectStatus; // derived rollup
   overdue_count: number;
   due_this_week: number;
   health: "on_track" | "at_risk" | "overdue";
+}
+
+export interface DashboardTrends {
+  completed_this_week: number;
+  completed_prev_week: number;
+  created_this_week: number;
+  created_prev_week: number;
 }
 
 export interface DashboardData {
@@ -183,6 +195,7 @@ export interface DashboardData {
   tasks_by_status: StatusCount[];
   throughput: ThroughputPoint[];
   projects: ProjectHealth[];
+  trends: DashboardTrends;
 }
 
 // --- personal access tokens (MCP) ---

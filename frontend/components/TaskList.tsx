@@ -3,7 +3,7 @@
 import { useState } from "react";
 import { Status, Task, TaskGroup } from "@/lib/api";
 import { PriorityBadge } from "./PriorityBadge";
-import { Pill } from "./ui";
+import { Pill, ProgressBar } from "./ui";
 
 function AddTask({ onAdd }: { onAdd: (title: string) => Promise<void> }) {
   const [title, setTitle] = useState("");
@@ -213,6 +213,17 @@ export function TaskList({
                     >
                       {t.title}
                     </span>
+                    {!done && t.progress > 0 && (
+                      <span
+                        style={{ display: "inline-flex", alignItems: "center", gap: 6, width: 78 }}
+                        title={`${t.progress}% complete`}
+                      >
+                        <ProgressBar value={t.progress} height={5} style={{ flex: 1 }} />
+                        <span className="muted" style={{ fontSize: 11, fontVariantNumeric: "tabular-nums" }}>
+                          {t.progress}%
+                        </span>
+                      </span>
+                    )}
                     {t.due_date && (
                       <span className="muted" style={{ fontSize: 12, fontVariantNumeric: "tabular-nums" }}>
                         {t.due_date}

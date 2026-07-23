@@ -5,7 +5,7 @@ import { api, ApiError, Member, MyTask, Status, Task, TaskGroup } from "@/lib/ap
 import { FilterBar } from "./FilterBar";
 import { TaskDetail } from "./TaskDetail";
 import { PriorityBadge } from "./PriorityBadge";
-import { Card, Pill, priorityColor, SectionLabel, StatCard } from "./ui";
+import { Card, EmptyState, Pill, priorityColor, ProjectIcon, SectionLabel, Skeleton, StatCard } from "./ui";
 
 // Local calendar date as YYYY-MM-DD. Because due_date is stored the same way,
 // bucketing is plain string comparison — no timezone parsing needed.
@@ -157,7 +157,27 @@ export function MyTasks({
   }, [tasks, filtered, statuses]); // eslint-disable-line react-hooks/exhaustive-deps
 
   if (error) return <div style={{ padding: 24 }} className="error">{error}</div>;
-  if (!model) return <div style={{ padding: 24 }} className="muted">Loading…</div>;
+  if (!model)
+    return (
+      <div style={{ flex: 1, padding: 24, width: "100%" }}>
+        <h2 className="page-title">My Tasks</h2>
+        <div style={{ display: "flex", flexWrap: "wrap", gap: 12, marginBottom: 22 }}>
+          {Array.from({ length: 5 }).map((_, i) => (
+            <Card key={i} style={{ padding: "14px 16px", minWidth: 130, flex: "1 1 130px" }}>
+              <Skeleton w={70} h={10} />
+              <Skeleton w={54} h={24} style={{ marginTop: 12 }} />
+            </Card>
+          ))}
+        </div>
+        <Card style={{ overflow: "hidden" }}>
+          {Array.from({ length: 5 }).map((_, i) => (
+            <div key={i} style={{ padding: "12px 14px", borderTop: i === 0 ? "none" : "1px solid var(--border)" }}>
+              <Skeleton h={14} w={`${70 - i * 6}%`} />
+            </div>
+          ))}
+        </Card>
+      </div>
+    );
 
   return (
     <div style={{ display: "flex", flex: 1, minWidth: 0, height: "100%", width: "100%" }}>
@@ -196,6 +216,16 @@ export function MyTasks({
           <StatCard label="Due this week" value={model.dueThisWeek} icon="🗓️" />
         </div>
 
+        {model.total === 0 && (
+          <EmptyState
+            emoji="🎯"
+            title="No tasks assigned to you"
+            desc="When teammates assign you work, it'll show up here — grouped by when it's due."
+          />
+        )}
+
+        {model.total > 0 && (
+        <>
         {/* Status + priority breakdowns */}
         <div style={{ display: "flex", flexWrap: "wrap", gap: 28, marginBottom: 24 }}>
           <div>
@@ -261,7 +291,8 @@ export function MyTasks({
                       <span style={{ flex: 1, minWidth: 0, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
                         {t.title}
                       </span>
-                      <span className="muted" style={{ fontSize: 12, whiteSpace: "nowrap" }}>
+                      <span className="muted" style={{ display: "inline-flex", alignItems: "center", gap: 6, fontSize: 12, whiteSpace: "nowrap" }}>
+                        <ProjectIcon seed={t.project_id} size={18} />
                         {t.team_name} / {t.project_name}
                       </span>
                       {s && (
@@ -279,6 +310,8 @@ export function MyTasks({
             </div>
           );
         })}
+        </>
+        )}
       </div>
 
       {selected && (

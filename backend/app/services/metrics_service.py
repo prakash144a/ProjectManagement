@@ -193,6 +193,26 @@ def dashboard(
             per_week[ws] += 1
     throughput = [{"week_start": ws, "count": per_week[ws]} for ws in week_starts]
 
+    # Trend signals: last 7 days vs the 7 days before that (rolling windows), for
+    # both completed and newly created tasks. Gives the KPI cards a direction.
+    win_start = today - timedelta(days=6)  # inclusive 7-day window ending today
+    prev_start = today - timedelta(days=13)
+    prev_end = today - timedelta(days=7)
+    completed_this_week = completed_prev_week = 0
+    created_this_week = created_prev_week = 0
+    for t in tasks:
+        if t.completed_at is not None:
+            cd = t.completed_at.date()
+            if win_start <= cd <= today:
+                completed_this_week += 1
+            elif prev_start <= cd <= prev_end:
+                completed_prev_week += 1
+        crd = t.created_at.date()
+        if win_start <= crd <= today:
+            created_this_week += 1
+        elif prev_start <= crd <= prev_end:
+            created_prev_week += 1
+
     # Per-project rollup + health signal.
     tasks_by_project: dict[uuid.UUID, list[Task]] = {}
     for t in tasks:
@@ -210,6 +230,14 @@ def dashboard(
             health = "at_risk"
         else:
             health = "on_track"
+        # Derived project status (rollup) + progress = avg of task progress bars.
+        if p_count == 0:
+            status_rollup = "not_started"
+        elif p_done == p_count:
+            status_rollup = "done"
+        else:
+            status_rollup = "in_progress"
+        p_progress = round(sum(t.progress for t in pts) / p_count) if p_count else 0
         project_rows.append(
             {
                 "id": p.id,
@@ -217,6 +245,8 @@ def dashboard(
                 "task_count": p_count,
                 "done_count": p_done,
                 "completion_rate": round(p_done / p_count, 4) if p_count else 0.0,
+                "progress": p_progress,
+                "status": status_rollup,
                 "overdue_count": p_overdue,
                 "due_this_week": p_due_week,
                 "health": health,
@@ -235,4 +265,10 @@ def dashboard(
         "tasks_by_status": tasks_by_status,
         "throughput": throughput,
         "projects": project_rows,
+        "trends": {
+            "completed_this_week": completed_this_week,
+            "completed_prev_week": completed_prev_week,
+            "created_this_week": created_this_week,
+            "created_prev_week": created_prev_week,
+        },
     }
