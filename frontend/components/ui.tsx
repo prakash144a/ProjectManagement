@@ -54,6 +54,294 @@ export function ProgressBar({
   );
 }
 
+// ---------------------------------------------------------------------------
+// Lightweight, dependency-free charts (hand-rolled SVG). Theme-aware via CSS
+// vars (track = --surface-2), sized entirely via props so they drop into cards
+// and stat rows. No chart library — same zero-bundle approach as the bar charts.
+// ---------------------------------------------------------------------------
+
+function clampPct(n: number, lo = 0, hi = 100): number {
+  return Math.max(lo, Math.min(hi, n));
+}
+
+export interface Segment {
+  value: number;
+  color: string;
+  label?: string;
+}
+
+// A segmented ring. Pass `total` to render a partial ring (segments summing to
+// less than `total` leave the track visible); omit it to treat the segments as
+// the whole. `center` renders centered content (a number, a label, …).
+export function Donut({
+  segments,
+  total,
+  size = 128,
+  thickness = 16,
+  center,
+  trackColor = "var(--surface-2)",
+  rounded = false,
+}: {
+  segments: Segment[];
+  total?: number;
+  size?: number;
+  thickness?: number;
+  center?: ReactNode;
+  trackColor?: string;
+  rounded?: boolean;
+}) {
+  const sum = segments.reduce((s, x) => s + Math.max(0, x.value), 0);
+  const whole = total ?? sum;
+  const r = (size - thickness) / 2;
+  const circ = 2 * Math.PI * r;
+  let acc = 0;
+  return (
+    <div style={{ position: "relative", width: size, height: size, flexShrink: 0 }}>
+      <svg width={size} height={size} viewBox={`0 0 ${size} ${size}`} style={{ transform: "rotate(-90deg)" }}>
+        <circle cx={size / 2} cy={size / 2} r={r} fill="none" stroke={trackColor} strokeWidth={thickness} />
+        {whole > 0 &&
+          segments.map((s, i) => {
+            const len = (Math.max(0, s.value) / whole) * circ;
+            const off = acc;
+            acc += len;
+            if (len <= 0) return null;
+            return (
+              <circle
+                key={i}
+                cx={size / 2}
+                cy={size / 2}
+                r={r}
+                fill="none"
+                stroke={s.color}
+                strokeWidth={thickness}
+                strokeLinecap={rounded ? "round" : "butt"}
+                strokeDasharray={`${len} ${circ - len}`}
+                strokeDashoffset={-off}
+                style={{ transition: "stroke-dasharray .5s var(--ease), stroke-dashoffset .5s var(--ease)" }}
+              />
+            );
+          })}
+      </svg>
+      {center != null && (
+        <div
+          style={{
+            position: "absolute",
+            inset: 0,
+            display: "flex",
+            flexDirection: "column",
+            alignItems: "center",
+            justifyContent: "center",
+            textAlign: "center",
+            lineHeight: 1.15,
+          }}
+        >
+          {center}
+        </div>
+      )}
+    </div>
+  );
+}
+
+// A single 0..100 metric as a ring with a big number in the middle (the hero
+// KPI). The track shows the remaining-to-100 portion.
+export function RadialStat({
+  value,
+  color = "var(--primary)",
+  size = 128,
+  thickness = 14,
+  label,
+  suffix = "%",
+}: {
+  value: number;
+  color?: string;
+  size?: number;
+  thickness?: number;
+  label?: ReactNode;
+  suffix?: string;
+}) {
+  const v = clampPct(Math.round(value));
+  return (
+    <Donut
+      total={100}
+      size={size}
+      thickness={thickness}
+      rounded
+      segments={[{ value: v, color }]}
+      center={
+        <>
+          <span style={{ fontSize: Math.round(size * 0.24), fontWeight: 700, fontVariantNumeric: "tabular-nums" }}>
+            {v}
+            <span style={{ fontSize: "0.58em", fontWeight: 600, opacity: 0.7 }}>{suffix}</span>
+          </span>
+          {label && (
+            <span className="section-label" style={{ marginTop: 3 }}>
+              {label}
+            </span>
+          )}
+        </>
+      }
+    />
+  );
+}
+
+export interface GaugeZone {
+  upto: number; // inclusive upper bound, in value units
+  color: string;
+}
+
+// A 180° gauge for one value against a range, with threshold-colored fill.
+// `zones` (sorted ascending) pick the fill color by which band `value` lands in;
+// or pass an explicit `color`.
+export function GaugeArc({
+  value,
+  max = 100,
+  zones,
+  color,
+  size = 150,
+  thickness = 12,
+  label,
+  display,
+}: {
+  value: number;
+  max?: number;
+  zones?: GaugeZone[];
+  color?: string;
+  size?: number;
+  thickness?: number;
+  label?: ReactNode;
+  display?: ReactNode;
+}) {
+  const r = (size - thickness) / 2;
+  const cx = size / 2;
+  const cy = size / 2;
+  const f = clampPct(max ? value / max : 0, 0, 1);
+  const svgH = size / 2 + thickness / 2 + 2;
+  // Trace the arc as a sampled polyline (0° = right, 90° = top, 180° = left, with
+  // y flipped so the arc bulges up). Sampling sidesteps SVG arc-flag ambiguity —
+  // the gauge always renders over the top regardless of direction.
+  const arc = (startDeg: number, endDeg: number) => {
+    const steps = Math.max(2, Math.round(Math.abs(startDeg - endDeg) / 3));
+    let d = "";
+    for (let i = 0; i <= steps; i++) {
+      const deg = startDeg + ((endDeg - startDeg) * i) / steps;
+      const x = cx + r * Math.cos((deg * Math.PI) / 180);
+      const y = cy - r * Math.sin((deg * Math.PI) / 180);
+      d += `${i === 0 ? "M" : "L"} ${x.toFixed(2)} ${y.toFixed(2)} `;
+    }
+    return d.trim();
+  };
+  const fillColor =
+    color || (zones ? zones.find((z) => value <= z.upto)?.color ?? zones[zones.length - 1].color : "var(--primary)");
+  const endAngle = 180 - 180 * f;
+  return (
+    <div style={{ position: "relative", width: size, height: svgH, flexShrink: 0 }}>
+      <svg width={size} height={svgH} viewBox={`0 0 ${size} ${svgH}`}>
+        <path d={arc(180, 0)} fill="none" stroke="var(--surface-2)" strokeWidth={thickness} strokeLinecap="round" />
+        {f > 0 && (
+          <path d={arc(180, endAngle)} fill="none" stroke={fillColor} strokeWidth={thickness} strokeLinecap="round" />
+        )}
+      </svg>
+      <div
+        style={{
+          position: "absolute",
+          left: 0,
+          right: 0,
+          bottom: 0,
+          display: "flex",
+          flexDirection: "column",
+          alignItems: "center",
+          lineHeight: 1.1,
+        }}
+      >
+        <span style={{ fontSize: Math.round(size * 0.17), fontWeight: 700, fontVariantNumeric: "tabular-nums", color: fillColor }}>
+          {display ?? Math.round(value)}
+        </span>
+        {label && (
+          <span className="section-label" style={{ marginTop: 2 }}>
+            {label}
+          </span>
+        )}
+      </div>
+    </div>
+  );
+}
+
+// A single 100%-wide segmented bar — the dense alternative to a donut for a
+// small categorical breakdown (e.g. priority mix).
+export function StackedBar({ segments, height = 10 }: { segments: Segment[]; height?: number }) {
+  const total = segments.reduce((s, x) => s + Math.max(0, x.value), 0) || 1;
+  return (
+    <div style={{ display: "flex", height, borderRadius: 999, overflow: "hidden", background: "var(--surface-2)" }}>
+      {segments.map((s, i) => (
+        <div
+          key={i}
+          title={s.label}
+          style={{ width: `${(Math.max(0, s.value) / total) * 100}%`, background: s.color, transition: "width 0.4s var(--ease)" }}
+        />
+      ))}
+    </div>
+  );
+}
+
+// A compact trend line for a small series (e.g. weekly throughput).
+export function Sparkline({
+  points,
+  width = 72,
+  height = 24,
+  color = "var(--primary)",
+  fill = true,
+}: {
+  points: number[];
+  width?: number;
+  height?: number;
+  color?: string;
+  fill?: boolean;
+}) {
+  if (!points || points.length < 2) return null;
+  const max = Math.max(...points);
+  const min = Math.min(...points);
+  const range = max - min || 1;
+  const step = width / (points.length - 1);
+  const pad = 2.5;
+  const h = height - pad * 2;
+  const xy = points.map((p, i) => [i * step, pad + h - ((p - min) / range) * h] as const);
+  const line = xy.map(([x, y], i) => `${i ? "L" : "M"} ${x.toFixed(1)} ${y.toFixed(1)}`).join(" ");
+  const area = `${line} L ${width.toFixed(1)} ${height} L 0 ${height} Z`;
+  const [lx, ly] = xy[xy.length - 1];
+  return (
+    <svg width={width} height={height} viewBox={`0 0 ${width} ${height}`} style={{ display: "block", overflow: "visible" }}>
+      {fill && <path d={area} fill={color} opacity={0.12} />}
+      <path d={line} fill="none" stroke={color} strokeWidth={1.75} strokeLinejoin="round" strokeLinecap="round" />
+      <circle cx={lx} cy={ly} r={2.2} fill={color} />
+    </svg>
+  );
+}
+
+// A vertical legend for the charts above: color dot + label + optional value.
+export function ChartLegend({
+  items,
+  style,
+}: {
+  items: { label: ReactNode; color: string; value?: ReactNode }[];
+  style?: CSSProperties;
+}) {
+  return (
+    <div style={{ display: "flex", flexDirection: "column", gap: 8, ...style }}>
+      {items.map((it, i) => (
+        <div key={i} className="row" style={{ justifyContent: "space-between", gap: 12 }}>
+          <span style={{ display: "inline-flex", alignItems: "center", gap: 8, minWidth: 0 }}>
+            <Dot color={it.color} />
+            <span style={{ overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap", fontSize: 13 }}>{it.label}</span>
+          </span>
+          {it.value != null && (
+            <strong style={{ fontSize: 13, fontVariantNumeric: "tabular-nums" }}>{it.value}</strong>
+          )}
+        </div>
+      ))}
+    </div>
+  );
+}
+
 export function Card({
   children,
   hover,

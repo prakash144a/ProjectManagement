@@ -5,7 +5,7 @@ import { api, ApiError, Member, MyTask, Status, Task, TaskGroup } from "@/lib/ap
 import { FilterBar } from "./FilterBar";
 import { TaskDetail } from "./TaskDetail";
 import { PriorityBadge } from "./PriorityBadge";
-import { Card, EmptyState, Pill, priorityColor, ProjectIcon, SectionLabel, Skeleton, StatCard } from "./ui";
+import { Card, ChartLegend, Donut, EmptyState, Pill, priorityColor, ProjectIcon, RadialStat, SectionLabel, Skeleton, StackedBar, StatCard } from "./ui";
 
 // Local calendar date as YYYY-MM-DD. Because due_date is stored the same way,
 // bucketing is plain string comparison — no timezone parsing needed.
@@ -226,37 +226,75 @@ export function MyTasks({
 
         {model.total > 0 && (
         <>
-        {/* Status + priority breakdowns */}
-        <div style={{ display: "flex", flexWrap: "wrap", gap: 28, marginBottom: 24 }}>
-          <div>
-            <SectionLabel style={{ marginBottom: 8 }}>By status</SectionLabel>
-            <div style={{ display: "flex", flexWrap: "wrap", gap: 8 }}>
-              {model.statusCounts.map(({ status, count }) => (
-                <Pill key={status.id} color={status.color || "var(--text-dim)"} dot>
-                  {status.name} <strong>{count}</strong>
-                </Pill>
-              ))}
-              {model.noStatus > 0 && (
-                <Pill color="var(--text-dim)" dot>
-                  No status <strong>{model.noStatus}</strong>
-                </Pill>
-              )}
-              {model.statusCounts.length === 0 && model.noStatus === 0 && (
-                <span className="muted" style={{ fontSize: 13 }}>No tasks.</span>
-              )}
+        {/* Overview band: completion ring + status donut + priority mix */}
+        <Card style={{ padding: 18, marginBottom: 24 }}>
+          <div style={{ display: "flex", flexWrap: "wrap", gap: 32, alignItems: "center" }}>
+            {/* Completion */}
+            <div style={{ display: "flex", flexDirection: "column", alignItems: "center", gap: 8 }}>
+              <RadialStat value={model.completion} color="#16a34a" label="Completed" size={120} />
+              <span className="muted" style={{ fontSize: 12, fontVariantNumeric: "tabular-nums" }}>
+                {model.doneCount} of {model.total} done
+              </span>
             </div>
+
+            {/* By status */}
+            {(model.statusCounts.length > 0 || model.noStatus > 0) && (
+              <div style={{ display: "flex", alignItems: "center", gap: 16, minWidth: 220, flex: "1 1 240px" }}>
+                <Donut
+                  size={112}
+                  segments={[
+                    ...model.statusCounts.map(({ status, count }) => ({
+                      value: count,
+                      color: status.color || "var(--text-dim)",
+                      label: status.name,
+                    })),
+                    ...(model.noStatus > 0 ? [{ value: model.noStatus, color: "var(--text-dim)", label: "No status" }] : []),
+                  ]}
+                  center={
+                    <>
+                      <span style={{ fontSize: 21, fontWeight: 700, fontVariantNumeric: "tabular-nums" }}>{model.total}</span>
+                      <span className="section-label">tasks</span>
+                    </>
+                  }
+                />
+                <ChartLegend
+                  style={{ flex: 1, minWidth: 0 }}
+                  items={[
+                    ...model.statusCounts.map(({ status, count }) => ({
+                      label: status.name,
+                      color: status.color || "var(--text-dim)",
+                      value: count,
+                    })),
+                    ...(model.noStatus > 0 ? [{ label: "No status", color: "var(--text-dim)", value: model.noStatus }] : []),
+                  ]}
+                />
+              </div>
+            )}
+
+            {/* By priority */}
+            {model.priorityCounts.length > 0 && (
+              <div style={{ minWidth: 200, flex: "1 1 220px" }}>
+                <SectionLabel style={{ marginBottom: 10 }}>By priority</SectionLabel>
+                <StackedBar
+                  height={12}
+                  segments={model.priorityCounts.map(({ priority, count }) => ({
+                    value: count,
+                    color: priorityColor(priority),
+                    label: `${priority}: ${count}`,
+                  }))}
+                />
+                <ChartLegend
+                  style={{ marginTop: 12 }}
+                  items={model.priorityCounts.map(({ priority, count }) => ({
+                    label: <span style={{ textTransform: "capitalize" }}>{priority}</span>,
+                    color: priorityColor(priority),
+                    value: count,
+                  }))}
+                />
+              </div>
+            )}
           </div>
-          <div>
-            <SectionLabel style={{ marginBottom: 8 }}>By priority</SectionLabel>
-            <div style={{ display: "flex", flexWrap: "wrap", gap: 8 }}>
-              {model.priorityCounts.map(({ priority, count }) => (
-                <Pill key={priority} color={priorityColor(priority)} dot style={{ textTransform: "capitalize" }}>
-                  {priority} <strong>{count}</strong>
-                </Pill>
-              ))}
-            </div>
-          </div>
-        </div>
+        </Card>
 
         {/* Due-date buckets (open tasks only) */}
         {BUCKETS.map((b) => {

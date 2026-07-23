@@ -4,7 +4,7 @@ import { ReactNode, useEffect, useMemo, useState } from "react";
 import { api, ApiError, DashboardData, Project, ProjectHealth } from "@/lib/api";
 import { useAuth } from "@/lib/auth";
 import { FilterBar, FilterOption } from "./FilterBar";
-import { Avatar, Card, Delta, Dot, EmptyState, Pill, ProjectIcon, PROJECT_STATUS_META, SectionLabel, Skeleton, StatCard } from "./ui";
+import { Avatar, Card, ChartLegend, Delta, Donut, EmptyState, GaugeArc, Pill, ProjectIcon, PROJECT_STATUS_META, RadialStat, SectionLabel, Skeleton, Sparkline, StatCard } from "./ui";
 
 const HEALTH: Record<ProjectHealth["health"], { label: string; color: string }> = {
   on_track: { label: "On track", color: "#16a34a" },
@@ -147,6 +147,20 @@ export function Dashboard({
     .sort((a, b) => b.due_this_week - a.due_this_week)
     .slice(0, 5);
 
+  // Portfolio-health breakdown for the health donut (order = severity ramp).
+  const healthOrder: ProjectHealth["health"][] = ["on_track", "at_risk", "overdue"];
+  const healthCounts = healthOrder
+    .map((h) => ({ health: h, count: data.projects.filter((p) => p.health === h).length }))
+    .filter((x) => x.count > 0);
+
+  // "Momentum" = are we closing work faster than it's created this week?
+  // >=100% means the backlog is shrinking. Gauge is clamped to 0..100 for display.
+  const momentum = t.created_this_week
+    ? Math.round((t.completed_this_week / t.created_this_week) * 100)
+    : t.completed_this_week > 0
+      ? 100
+      : 0;
+
   return (
     <div style={{ padding: 24, overflowY: "auto", height: "100%", width: "100%" }}>
       {header}
@@ -185,27 +199,67 @@ export function Dashboard({
             <StatCard label="Due this week" value={data.due_this_week} icon="🗓️" />
           </div>
 
-          {/* Tasks by status */}
+          {/* Overview band: completion ring + status donut + portfolio health */}
           <Card style={{ padding: 18, marginBottom: 16 }}>
-            <SectionLabel style={{ marginBottom: 14 }}>Tasks by status</SectionLabel>
-            {data.tasks_by_status.length === 0 ? (
+            <SectionLabel style={{ marginBottom: 14 }}>Overview</SectionLabel>
+            {data.total_tasks === 0 ? (
               <EmptyState emoji="🗒️" title="No tasks yet" desc="Tasks will appear here as your team creates them." />
             ) : (
-              data.tasks_by_status.map((s) => {
-                const share = data.total_tasks ? s.count / data.total_tasks : 0;
-                return (
-                  <div key={s.status_id || "none"} style={{ marginBottom: 12 }}>
-                    <div className="row" style={{ justifyContent: "space-between", marginBottom: 5 }}>
-                      <span style={{ display: "inline-flex", alignItems: "center", gap: 7 }}>
-                        <Dot color={s.color || "var(--text-dim)"} />
-                        {s.name}
-                      </span>
-                      <span className="muted" style={{ fontSize: 12, fontVariantNumeric: "tabular-nums" }}>{s.count}</span>
-                    </div>
-                    <Bar value={pct(share)} color={s.color || undefined} />
+              <div style={{ display: "flex", flexWrap: "wrap", gap: 28, alignItems: "center" }}>
+                {/* Completion */}
+                <div style={{ display: "flex", flexDirection: "column", alignItems: "center", gap: 8 }}>
+                  <RadialStat value={pct(data.completion_rate)} color="#16a34a" label="Completed" size={124} />
+                  <span className="muted" style={{ fontSize: 12, fontVariantNumeric: "tabular-nums" }}>
+                    {data.tasks_completed} of {data.total_tasks} done
+                  </span>
+                </div>
+
+                {/* Tasks by status */}
+                <div style={{ display: "flex", alignItems: "center", gap: 16, minWidth: 220, flex: "1 1 240px" }}>
+                  <Donut
+                    size={118}
+                    segments={data.tasks_by_status.map((s) => ({
+                      value: s.count,
+                      color: s.color || "var(--text-dim)",
+                      label: s.name,
+                    }))}
+                    center={
+                      <>
+                        <span style={{ fontSize: 22, fontWeight: 700, fontVariantNumeric: "tabular-nums" }}>{data.total_tasks}</span>
+                        <span className="section-label">tasks</span>
+                      </>
+                    }
+                  />
+                  <ChartLegend
+                    style={{ flex: 1, minWidth: 0 }}
+                    items={data.tasks_by_status.map((s) => ({
+                      label: s.name,
+                      color: s.color || "var(--text-dim)",
+                      value: s.count,
+                    }))}
+                  />
+                </div>
+
+                {/* Portfolio health */}
+                {healthCounts.length > 0 && (
+                  <div style={{ display: "flex", alignItems: "center", gap: 16, minWidth: 220, flex: "1 1 240px" }}>
+                    <Donut
+                      size={118}
+                      segments={healthCounts.map((h) => ({ value: h.count, color: HEALTH[h.health].color, label: HEALTH[h.health].label }))}
+                      center={
+                        <>
+                          <span style={{ fontSize: 22, fontWeight: 700, fontVariantNumeric: "tabular-nums" }}>{data.total_projects}</span>
+                          <span className="section-label">projects</span>
+                        </>
+                      }
+                    />
+                    <ChartLegend
+                      style={{ flex: 1, minWidth: 0 }}
+                      items={healthCounts.map((h) => ({ label: HEALTH[h.health].label, color: HEALTH[h.health].color, value: h.count }))}
+                    />
                   </div>
-                );
-              })
+                )}
+              </div>
             )}
           </Card>
 
@@ -213,7 +267,10 @@ export function Dashboard({
           <Card style={{ padding: 18, marginBottom: 16 }}>
             <div className="row" style={{ justifyContent: "space-between", marginBottom: 14 }}>
               <SectionLabel>Completed per week (last 4 weeks)</SectionLabel>
-              <Delta value={t.completed_this_week - t.completed_prev_week} suffix="vs last wk" />
+              <span style={{ display: "inline-flex", alignItems: "center", gap: 10 }}>
+                <Sparkline points={data.throughput.map((tp) => tp.count)} width={64} height={22} />
+                <Delta value={t.completed_this_week - t.completed_prev_week} suffix="vs last wk" />
+              </span>
             </div>
             <div style={{ display: "flex", alignItems: "flex-end", gap: 14, height: 130, padding: "6px 0" }}>
               {data.throughput.map((tp, i) => {
@@ -326,6 +383,19 @@ export function Dashboard({
 
           <Card style={{ padding: 18 }}>
             <SectionLabel style={{ marginBottom: 12 }}>This week</SectionLabel>
+            <div style={{ display: "flex", justifyContent: "center", marginBottom: 6 }}>
+              <GaugeArc
+                value={momentum}
+                size={148}
+                label="Momentum (done vs created)"
+                display={`${momentum}%`}
+                zones={[
+                  { upto: 59, color: "#dc2626" },
+                  { upto: 99, color: "#d97706" },
+                  { upto: 1000, color: "#16a34a" },
+                ]}
+              />
+            </div>
             <InsightRow label="Completed" value={t.completed_this_week} delta={t.completed_this_week - t.completed_prev_week} />
             <InsightRow label="Created" value={t.created_this_week} delta={t.created_this_week - t.created_prev_week} />
             <InsightRow label="Due this week" value={data.due_this_week} />
