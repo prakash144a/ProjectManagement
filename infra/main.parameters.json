@@ -9,7 +9,6 @@
     "registryUsername": { "value": "CHANGEME" },
 
     "backendImage": { "value": "CHANGEME.azurecr.io/pm-backend:latest" },
-    "frontendImage": { "value": "CHANGEME.azurecr.io/pm-frontend:latest" },
 
     "keyVaultName": { "value": "CHANGEME-kv" },
     "userAssignedIdentityId": { "value": "CHANGEME (resource id printed by kvSecrets_Prod.sh)" },

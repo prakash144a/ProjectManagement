@@ -20,7 +20,7 @@ Three separate apps in one Container Apps environment, from **two images**:
   (Key Vault + identity + secrets). One file per environment lives in `oneTimeScripts/`.
 - `infra/main.bicep` — the Container Apps environment + 3 apps.
 - `infra/main.parameters.json` — non-secret params (**fill the `CHANGEME`s**).
-- `infra/deploy.sh` — build → push → deploy → wire URLs.
+- `infra/deploy.sh` — ensure ACR → build → push → deploy → wire URLs.
 
 ## Secrets model (Key Vault)
 Secret **values** are never committed and never passed to the deploy CLI. You upload
@@ -40,8 +40,9 @@ param. `mcp` and `web` hold no secrets.
 In `deploy.sh` / `oneTimeScripts/kvSecrets_Prod.sh` (or export as env vars) and `main.parameters.json`:
 - `SUBSCRIPTION` — Azure subscription id
 - `RESOURCE_GROUP` — target resource group
-- `LOCATION` — e.g. `eastus`
-- `ACR_NAME` — your Azure Container Registry name
+- `LOCATION` — e.g. `westus`
+- `ACR_NAME` — container registry name (globally unique, alphanumeric). **Auto-created**
+  by `deploy.sh` if it doesn't exist (Basic tier, admin enabled).
 - `NAME_PREFIX` — resource name prefix (default `pmapp`)
 - `ACS_EMAIL_SENDER` — verified ACS sender, e.g. `DoNotReply@<domain>.azurecomm.net`
 
@@ -49,7 +50,8 @@ In `deploy.sh` / `oneTimeScripts/kvSecrets_Prod.sh` (or export as env vars) and 
 ```bash
 az login
 az extension add -n containerapp --upgrade
-export SUBSCRIPTION=... RESOURCE_GROUP=... LOCATION=eastus ACR_NAME=...
+# ACR_NAME must be globally unique + alphanumeric; deploy.sh creates it if missing.
+export SUBSCRIPTION=... RESOURCE_GROUP=... LOCATION=westus ACR_NAME=...
 
 # 1) One-time: create the vault + identity + secrets (export the secret VALUES first).
 export DATABASE_URL='postgresql://...'  GEMINI_API_KEY='...'  \
