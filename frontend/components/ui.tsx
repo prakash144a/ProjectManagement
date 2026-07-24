@@ -588,3 +588,38 @@ export function EmptyState({
     </div>
   );
 }
+
+// The product mark: a rounded indigo tile with a checkmark glyph. Used on the
+// login screen and the sidebar header so the brand reads consistently. Pass
+// `wordmark` to render the product name beside the tile.
+export function Logo({ size = 32, wordmark }: { size?: number; wordmark?: boolean }) {
+  return (
+    <span style={{ display: "inline-flex", alignItems: "center", gap: 10 }}>
+      <span
+        aria-hidden
+        style={{
+          width: size,
+          height: size,
+          display: "inline-flex",
+          alignItems: "center",
+          justifyContent: "center",
+          flexShrink: 0,
+          borderRadius: Math.round(size * 0.28),
+          background: "linear-gradient(140deg, #6366f1 0%, #4f46e5 100%)",
+          color: "#fff",
+          fontSize: Math.round(size * 0.56),
+          fontWeight: 800,
+          lineHeight: 1,
+          boxShadow: "0 4px 12px color-mix(in srgb, var(--primary) 35%, transparent)",
+        }}
+      >
+        ✓
+      </span>
+      {wordmark && (
+        <span style={{ fontSize: Math.round(size * 0.5), fontWeight: 700, letterSpacing: "-0.02em" }}>
+          Task Management
+        </span>
+      )}
+    </span>
+  );
+}
