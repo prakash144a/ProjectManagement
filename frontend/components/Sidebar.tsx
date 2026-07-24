@@ -175,7 +175,7 @@ export function Sidebar(props: {
   const { width, dragging, handleProps } = useResizableWidth({
     storageKey: "pm_w_sidebar",
     defaultWidth: 260,
-    min: 200,
+    min: 140,
     max: 420,
     side: "right",
   });
