@@ -23,12 +23,31 @@ from typing import Any
 
 import httpx
 from mcp.server.fastmcp import FastMCP
+from mcp.server.transport_security import TransportSecuritySettings
 
 REST_URL = os.getenv("MCP_REST_URL", "http://127.0.0.1:8000")
 
 _pat: ContextVar[str | None] = ContextVar("pat", default=None)
 
-mcp = FastMCP("taskmgmt", stateless_http=True)
+# DNS-rebinding protection (mcp SDK >= ~1.9) validates the incoming Host header and
+# rejects anything not in `allowed_hosts` with 421 "Invalid Host header" — and FastMCP
+# turns it ON by default. That guards *local* browser-facing servers, but this MCP
+# server is a public, PAT-authenticated API behind Azure Container Apps' TLS proxy,
+# where the same protection instead blocks our own public FQDN (and platform health
+# probes, which send a different Host). So default it OFF; set MCP_ALLOWED_HOSTS
+# (comma-separated hostnames) to lock it down in an environment where every legitimate
+# Host — proxy and health-probe included — is known.
+_allowed_hosts = [h.strip() for h in os.getenv("MCP_ALLOWED_HOSTS", "").split(",") if h.strip()]
+if _allowed_hosts:
+    _security = TransportSecuritySettings(
+        enable_dns_rebinding_protection=True,
+        allowed_hosts=_allowed_hosts,
+        allowed_origins=_allowed_hosts,
+    )
+else:
+    _security = TransportSecuritySettings(enable_dns_rebinding_protection=False)
+
+mcp = FastMCP("taskmgmt", stateless_http=True, transport_security=_security)
 
 
 # --- REST client (as the authenticated user; PAT selects the org) ---
