@@ -2,7 +2,7 @@
 
 import { useState } from "react";
 import { Org, Project, Team } from "@/lib/api";
-import { ProjectIcon } from "./ui";
+import { Logo, ProjectIcon, SectionLabel } from "./ui";
 
 function AddInline({
   placeholder,
@@ -64,17 +64,7 @@ function Selector({
   const [adding, setAdding] = useState(false);
   return (
     <div style={{ marginBottom: 14 }}>
-      <div
-        style={{
-          fontSize: 11,
-          textTransform: "uppercase",
-          letterSpacing: 0.5,
-          color: "var(--text-dim)",
-          marginBottom: 4,
-        }}
-      >
-        {label}
-      </div>
+      <SectionLabel style={{ marginBottom: 5 }}>{label}</SectionLabel>
       {adding ? (
         <AddInline
           placeholder={`New ${label.toLowerCase()}`}
@@ -124,17 +114,8 @@ function NavItem({
   return (
     <div
       onClick={onClick}
-      className="list-row"
-      style={{
-        display: "flex",
-        alignItems: "center",
-        gap: 8,
-        padding: "7px 10px",
-        borderRadius: 6,
-        cursor: "pointer",
-        background: active ? "var(--surface-2)" : "transparent",
-        fontWeight: active ? 600 : 400,
-      }}
+      className={`nav-item${active ? " active" : ""}`}
+      style={{ padding: "7px 10px 7px 12px" }}
     >
       <span style={{ width: 16, textAlign: "center" }}>{icon}</span>
       {label}
@@ -156,17 +137,8 @@ function ProjectRow({
   return (
     <div
       onClick={onClick}
-      className="list-row"
-      style={{
-        display: "flex",
-        alignItems: "center",
-        gap: 8,
-        padding: "6px 8px",
-        borderRadius: 6,
-        cursor: "pointer",
-        background: active ? "var(--surface-2)" : "transparent",
-        fontWeight: active ? 600 : 400,
-      }}
+      className={`nav-item${active ? " active" : ""}`}
+      style={{ padding: "6px 8px 6px 12px" }}
     >
       <ProjectIcon seed={seed} size={22} />
       <span style={{ minWidth: 0, whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>
@@ -212,6 +184,20 @@ export function Sidebar(props: {
         flexDirection: "column",
       }}
     >
+      {/* Brand header, aligned to the app header height. */}
+      <div
+        style={{
+          height: 52,
+          flexShrink: 0,
+          display: "flex",
+          alignItems: "center",
+          padding: "0 14px",
+          borderBottom: "1px solid var(--border)",
+        }}
+      >
+        <Logo size={26} wordmark />
+      </div>
+
       <div style={{ flex: 1, overflowY: "auto", padding: 14 }}>
         <Selector
           label="Organization"
@@ -252,18 +238,9 @@ export function Sidebar(props: {
           <div>
             <div
               className="row"
-              style={{ justifyContent: "space-between", marginBottom: 4 }}
+              style={{ justifyContent: "space-between", marginBottom: 5 }}
             >
-              <span
-                style={{
-                  fontSize: 11,
-                  textTransform: "uppercase",
-                  letterSpacing: 0.5,
-                  color: "var(--text-dim)",
-                }}
-              >
-                Projects
-              </span>
+              <SectionLabel>Projects</SectionLabel>
               <button
                 onClick={() => setAddingProject((v) => !v)}
                 title="New project"
@@ -304,17 +281,14 @@ export function Sidebar(props: {
 
       {/* App-wide settings, pinned to the bottom. */}
       <div style={{ borderTop: "1px solid var(--border)", padding: 10 }}>
-        <button
+        <div
           onClick={props.onOpenSettings}
-          style={{
-            width: "100%",
-            textAlign: "left",
-            background: props.settingsActive ? "var(--surface-2)" : "transparent",
-            border: "none",
-          }}
+          className={`nav-item${props.settingsActive ? " active" : ""}`}
+          style={{ padding: "7px 10px 7px 12px" }}
         >
-          ⚙️ Settings
-        </button>
+          <span style={{ width: 16, textAlign: "center" }}>⚙️</span>
+          Settings
+        </div>
       </div>
     </aside>
   );

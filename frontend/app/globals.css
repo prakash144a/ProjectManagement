@@ -218,6 +218,42 @@ a {
   font-weight: 600;
 }
 
+/* Sidebar nav entry — subtle hover, and an indigo tinted pill + accent bar when
+   active. The ::before is the left accent rail (scales in on active). */
+.nav-item {
+  position: relative;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  border-radius: 7px;
+  cursor: pointer;
+  color: var(--text);
+  transition: background var(--dur) var(--ease), color var(--dur) var(--ease);
+}
+.nav-item::before {
+  content: "";
+  position: absolute;
+  left: 2px;
+  top: 50%;
+  height: 16px;
+  width: 3px;
+  border-radius: 999px;
+  background: var(--primary);
+  transform: translateY(-50%) scaleY(0);
+  transition: transform var(--dur) var(--ease);
+}
+.nav-item:hover {
+  background: var(--surface-2);
+}
+.nav-item.active {
+  color: var(--primary);
+  font-weight: 600;
+  background: color-mix(in srgb, var(--primary) 10%, transparent);
+}
+.nav-item.active::before {
+  transform: translateY(-50%) scaleY(1);
+}
+
 /* Loading skeletons — shimmering placeholders that match content geometry. */
 .skeleton {
   position: relative;
