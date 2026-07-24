@@ -105,14 +105,11 @@ export default function ChatPage() {
             minHeight: 0,
           }}
         >
-          <div style={{ padding: "12px 14px", borderBottom: "1px solid var(--border)", display: "flex", alignItems: "center", gap: 8 }}>
-            <Link href="/home" style={{ fontSize: 13, color: "var(--text-dim)" }} title="Back to the app">
-              ← App
-            </Link>
+          <div style={{ padding: 12, borderBottom: "1px solid var(--border)" }}>
             <button
               className="primary"
               onClick={() => setSelected(null)}
-              style={{ marginLeft: "auto", padding: "6px 12px", fontSize: 13 }}
+              style={{ width: "100%", padding: "9px 12px", fontSize: 14 }}
             >
               + New chat
             </button>
@@ -193,6 +190,7 @@ export default function ChatPage() {
             key={selected ?? "new"}
             conversationId={selected}
             onConversationChanged={onConversationChanged}
+            variant="full"
           />
         </div>
       </div>

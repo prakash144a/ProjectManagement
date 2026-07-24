@@ -81,7 +81,13 @@ export function ChatWidget({ orgId }: { orgId: string }) {
         + New
       </button>
       <button
-        onClick={() => window.open("/chat", "pm-chat", "width=440,height=720")}
+        onClick={() => {
+          const w = Math.min(1200, Math.round(window.screen.availWidth * 0.9));
+          const h = Math.min(900, Math.round(window.screen.availHeight * 0.9));
+          const left = Math.round((window.screen.availWidth - w) / 2);
+          const top = Math.round((window.screen.availHeight - h) / 2);
+          window.open("/chat", "pm-chat", `width=${w},height=${h},left=${left},top=${top}`);
+        }}
         title="Open in a separate window"
         aria-label="Open chat in a separate window"
         style={{ border: "none", background: "transparent", fontSize: 15, cursor: "pointer" }}

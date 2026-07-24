@@ -13,8 +13,10 @@ const GREETING =
   "Hi! I can help you manage your teams, projects, and tasks. Try “what's on my plate this week?” or “create a task in Alpha to draft the report, due Friday”. Tap 🎙 to talk instead.";
 
 /**
- * The full chat experience (text + voice), used by both the floating widget and
- * the dedicated /chat page. Fills its parent; the parent controls size/chrome.
+ * The full chat experience (text + voice). Two visual variants:
+ * - "widget" (default): compact, for the floating drawer. Renders its own header.
+ * - "full": a roomy, centered full-page layout (ChatGPT/Claude-style) for /chat —
+ *   no header bar, a centered message column, and a rounded composer.
  *
  * Conversations are DB-backed: `conversationId` selects the thread (null = a new,
  * not-yet-created conversation — the first send creates it server-side). When the
@@ -24,16 +26,19 @@ const GREETING =
 export function ChatConversation({
   conversationId,
   onConversationChanged,
+  variant = "widget",
   title = "Assistant",
   headerExtra,
   onClose,
 }: {
   conversationId: string | null;
   onConversationChanged?: (conv: { id: string; title: string | null }) => void;
+  variant?: "widget" | "full";
   title?: string;
   headerExtra?: ReactNode;
   onClose?: () => void;
 }) {
+  const full = variant === "full";
   const [messages, setMessages] = useState<Msg[]>([]);
   const [input, setInput] = useState("");
   const [busy, setBusy] = useState(false);
@@ -171,105 +176,138 @@ export function ChatConversation({
     }
   }
 
-  return (
-    <div style={{ display: "flex", flexDirection: "column", height: "100%", width: "100%", minHeight: 0 }}>
-      {/* Header */}
+  // A message row. Full variant: assistant is full-width unstyled prose, user is a
+  // soft right-aligned bubble (market-standard). Widget variant: compact bubbles.
+  function messageRow(m: Msg, i: number) {
+    const isUser = m.role === "user";
+    return (
       <div
+        key={i}
         style={{
-          display: "flex",
-          alignItems: "center",
-          gap: 8,
-          padding: "10px 14px",
-          borderBottom: "1px solid var(--border)",
-          background: "var(--surface-2)",
+          alignSelf: isUser ? "flex-end" : full ? "stretch" : "flex-start",
+          maxWidth: full ? (isUser ? "80%" : "100%") : "85%",
         }}
       >
-        <span style={{ fontWeight: 600, flex: 1 }}>{title}</span>
-        {headerExtra}
-        {onClose && (
-          <button
-            onClick={onClose}
-            title="Close"
-            aria-label="Close assistant"
-            style={{ border: "none", background: "transparent", fontSize: 18, cursor: "pointer" }}
-          >
-            ✕
-          </button>
+        <div
+          className={m.role === "assistant" ? "md" : undefined}
+          style={{
+            padding: full && !isUser ? 0 : full ? "10px 14px" : "8px 12px",
+            borderRadius: 16,
+            fontSize: full ? 15 : 14,
+            lineHeight: full ? 1.65 : 1.45,
+            whiteSpace: isUser ? "pre-wrap" : undefined,
+            wordBreak: "break-word",
+            background: full
+              ? isUser
+                ? "var(--surface-2)"
+                : "transparent"
+              : isUser
+                ? "var(--primary)"
+                : "var(--surface-2)",
+            border: full && isUser ? "1px solid var(--border)" : undefined,
+            color: !full && isUser ? "#fff" : "var(--text)",
+          }}
+        >
+          {m.role === "assistant" ? (
+            <ReactMarkdown remarkPlugins={[remarkGfm]}>{m.content}</ReactMarkdown>
+          ) : (
+            m.content
+          )}
+        </div>
+        {m.actions && m.actions.length > 0 && (
+          <div style={{ display: "flex", flexWrap: "wrap", gap: 4, marginTop: 4 }}>
+            {m.actions.map((a, j) => (
+              <span
+                key={j}
+                className="badge"
+                style={{ fontSize: 11, color: a.ok ? "var(--text-dim)" : "#dc2626" }}
+                title={a.ok ? "succeeded" : "failed"}
+              >
+                {a.ok ? "✓" : "✕"} {a.tool}
+              </span>
+            ))}
+          </div>
         )}
       </div>
+    );
+  }
+
+  return (
+    <div style={{ display: "flex", flexDirection: "column", height: "100%", width: "100%", minHeight: 0 }}>
+      {/* Header — only the compact widget shows its own title bar. */}
+      {!full && (
+        <div
+          style={{
+            display: "flex",
+            alignItems: "center",
+            gap: 8,
+            padding: "10px 14px",
+            borderBottom: "1px solid var(--border)",
+            background: "var(--surface-2)",
+          }}
+        >
+          <span style={{ fontWeight: 600, flex: 1 }}>{title}</span>
+          {headerExtra}
+          {onClose && (
+            <button
+              onClick={onClose}
+              title="Close"
+              aria-label="Close assistant"
+              style={{ border: "none", background: "transparent", fontSize: 18, cursor: "pointer" }}
+            >
+              ✕
+            </button>
+          )}
+        </div>
+      )}
 
       {/* Messages */}
-      <div style={{ flex: 1, overflowY: "auto", padding: 14, display: "flex", flexDirection: "column", gap: 10, minHeight: 0 }}>
-        {loading && (
-          <div className="muted" style={{ fontSize: 13 }}>
-            Loading…
-          </div>
-        )}
-        {!loading && messages.length === 0 && (
-          <div className="muted" style={{ fontSize: 13, lineHeight: 1.5 }}>
-            {GREETING}
-          </div>
-        )}
-        {messages.map((m, i) => (
-          <div key={i} style={{ alignSelf: m.role === "user" ? "flex-end" : "flex-start", maxWidth: "85%" }}>
-            <div
-              className={m.role === "assistant" ? "md" : undefined}
-              style={{
-                padding: "8px 12px",
-                borderRadius: 12,
-                fontSize: 14,
-                lineHeight: 1.45,
-                whiteSpace: m.role === "user" ? "pre-wrap" : undefined,
-                wordBreak: "break-word",
-                background: m.role === "user" ? "var(--primary)" : "var(--surface-2)",
-                color: m.role === "user" ? "#fff" : "var(--text)",
-              }}
-            >
-              {m.role === "assistant" ? (
-                <ReactMarkdown remarkPlugins={[remarkGfm]}>{m.content}</ReactMarkdown>
-              ) : (
-                m.content
-              )}
+      <div style={{ flex: 1, overflowY: "auto", minHeight: 0 }}>
+        <div
+          style={{
+            display: "flex",
+            flexDirection: "column",
+            gap: full ? 22 : 10,
+            padding: full ? "28px 20px 12px" : 14,
+            maxWidth: full ? 768 : undefined,
+            width: "100%",
+            margin: full ? "0 auto" : undefined,
+            boxSizing: "border-box",
+          }}
+        >
+          {loading && (
+            <div className="muted" style={{ fontSize: 13 }}>
+              Loading…
             </div>
-            {m.actions && m.actions.length > 0 && (
-              <div style={{ display: "flex", flexWrap: "wrap", gap: 4, marginTop: 4 }}>
-                {m.actions.map((a, j) => (
-                  <span
-                    key={j}
-                    className="badge"
-                    style={{ fontSize: 11, color: a.ok ? "var(--text-dim)" : "#dc2626" }}
-                    title={a.ok ? "succeeded" : "failed"}
-                  >
-                    {a.ok ? "✓" : "✕"} {a.tool}
-                  </span>
-                ))}
+          )}
+          {!loading && messages.length === 0 &&
+            (full ? (
+              <div style={{ textAlign: "center", padding: "56px 0 24px" }}>
+                <div style={{ fontSize: 24, fontWeight: 600, marginBottom: 12 }}>
+                  How can I help?
+                </div>
+                <div className="muted" style={{ fontSize: 14, lineHeight: 1.6, maxWidth: 520, margin: "0 auto" }}>
+                  {GREETING}
+                </div>
               </div>
-            )}
-          </div>
-        ))}
-        {busy && (
-          <div className="muted" style={{ fontSize: 13, alignSelf: "flex-start" }}>
-            Thinking…
-          </div>
-        )}
-
-        {/* Live voice transcripts for the in-progress turn */}
-        {liveUser && (
-          <div style={{ alignSelf: "flex-end", maxWidth: "85%" }}>
-            <div style={{ padding: "8px 12px", borderRadius: 12, fontSize: 14, opacity: 0.75, background: "var(--primary)", color: "#fff" }}>
-              {liveUser}
+            ) : (
+              <div className="muted" style={{ fontSize: 13, lineHeight: 1.5 }}>
+                {GREETING}
+              </div>
+            ))}
+          {messages.map((m, i) => messageRow(m, i))}
+          {busy && (
+            <div className="muted" style={{ fontSize: full ? 14 : 13, alignSelf: "flex-start" }}>
+              Thinking…
             </div>
-          </div>
-        )}
-        {liveAsst && (
-          <div style={{ alignSelf: "flex-start", maxWidth: "85%" }}>
-            <div style={{ padding: "8px 12px", borderRadius: 12, fontSize: 14, opacity: 0.8, background: "var(--surface-2)", color: "var(--text)" }}>
-              {liveAsst}
-            </div>
-          </div>
-        )}
+          )}
 
-        <div ref={endRef} />
+          {/* Live voice transcripts for the in-progress turn */}
+          {liveUser && messageRow({ role: "user", content: liveUser }, -1)}
+          {liveAsst && messageRow({ role: "assistant", content: liveAsst }, -2)}
+
+          <div ref={endRef} />
+        </div>
       </div>
 
       {/* Voice status strip */}
@@ -278,6 +316,7 @@ export function ChatConversation({
           style={{
             display: "flex",
             alignItems: "center",
+            justifyContent: "center",
             gap: 8,
             padding: "6px 12px",
             borderTop: "1px solid var(--border)",
@@ -302,42 +341,97 @@ export function ChatConversation({
       )}
 
       {/* Composer */}
-      <div style={{ borderTop: "1px solid var(--border)", padding: 10, display: "flex", gap: 8, alignItems: "flex-end" }}>
-        <button
-          onClick={() => (voice === "off" ? startVoice() : stopVoice())}
-          title={voice === "off" ? "Start voice" : "Stop voice"}
-          aria-label={voice === "off" ? "Start voice" : "Stop voice"}
+      <div
+        style={{
+          borderTop: full ? undefined : "1px solid var(--border)",
+          padding: full ? "10px 20px 22px" : 10,
+        }}
+      >
+        <div
           style={{
-            flexShrink: 0,
-            width: 38,
-            height: 38,
-            borderRadius: "50%",
-            padding: 0,
-            border: "1px solid var(--border)",
-            background: voice !== "off" ? "#dc2626" : "var(--surface)",
-            color: voice !== "off" ? "#fff" : "var(--text)",
-            fontSize: 16,
+            display: "flex",
+            gap: 8,
+            alignItems: "flex-end",
+            maxWidth: full ? 768 : undefined,
+            margin: full ? "0 auto" : undefined,
+            border: full ? "1px solid var(--border)" : undefined,
+            borderRadius: full ? 20 : undefined,
+            background: full ? "var(--surface)" : undefined,
+            padding: full ? "8px 8px 8px 10px" : undefined,
+            boxShadow: full ? "0 2px 12px rgba(0,0,0,0.06)" : undefined,
           }}
         >
-          {voice === "off" ? "🎙" : "⏹"}
-        </button>
-        <textarea
-          ref={inputRef}
-          value={input}
-          onChange={(e) => setInput(e.target.value)}
-          onKeyDown={(e) => {
-            if (e.key === "Enter" && !e.shiftKey) {
-              e.preventDefault();
-              send();
-            }
-          }}
-          placeholder="Ask or tell me to do something…"
-          rows={1}
-          style={{ flex: 1, resize: "none", maxHeight: 120, fontSize: 14, padding: "8px 10px" }}
-        />
-        <button className="primary" onClick={send} disabled={busy || !input.trim()} style={{ padding: "8px 14px" }}>
-          Send
-        </button>
+          <button
+            onClick={() => (voice === "off" ? startVoice() : stopVoice())}
+            title={voice === "off" ? "Start voice" : "Stop voice"}
+            aria-label={voice === "off" ? "Start voice" : "Stop voice"}
+            style={{
+              flexShrink: 0,
+              width: full ? 40 : 38,
+              height: full ? 40 : 38,
+              borderRadius: "50%",
+              padding: 0,
+              border: "1px solid var(--border)",
+              background: voice !== "off" ? "#dc2626" : "var(--surface)",
+              color: voice !== "off" ? "#fff" : "var(--text)",
+              fontSize: 16,
+            }}
+          >
+            {voice === "off" ? "🎙" : "⏹"}
+          </button>
+          <textarea
+            ref={inputRef}
+            value={input}
+            onChange={(e) => setInput(e.target.value)}
+            onKeyDown={(e) => {
+              if (e.key === "Enter" && !e.shiftKey) {
+                e.preventDefault();
+                send();
+              }
+            }}
+            placeholder="Ask or tell me to do something…"
+            rows={1}
+            style={{
+              flex: 1,
+              resize: "none",
+              maxHeight: full ? 200 : 120,
+              fontSize: full ? 15 : 14,
+              padding: full ? "9px 8px" : "8px 10px",
+              border: full ? "none" : undefined,
+              background: full ? "transparent" : undefined,
+              outline: full ? "none" : undefined,
+            }}
+          />
+          {full ? (
+            <button
+              className="primary"
+              onClick={send}
+              disabled={busy || !input.trim()}
+              title="Send"
+              aria-label="Send"
+              style={{
+                flexShrink: 0,
+                width: 40,
+                height: 40,
+                borderRadius: "50%",
+                padding: 0,
+                fontSize: 18,
+                lineHeight: 1,
+              }}
+            >
+              ↑
+            </button>
+          ) : (
+            <button className="primary" onClick={send} disabled={busy || !input.trim()} style={{ padding: "8px 14px" }}>
+              Send
+            </button>
+          )}
+        </div>
+        {full && (
+          <div style={{ textAlign: "center", fontSize: 11, color: "var(--text-dim)", marginTop: 8 }}>
+            Enter to send · Shift+Enter for a new line
+          </div>
+        )}
       </div>
     </div>
   );
