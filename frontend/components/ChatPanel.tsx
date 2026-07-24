@@ -4,17 +4,21 @@ import { useEffect, useState } from "react";
 import { api } from "@/lib/api";
 import { ChatConversation } from "./ChatConversation";
 
-export function ChatWidget({ orgId }: { orgId: string }) {
-  const [open, setOpen] = useState(false);
-  // The widget is a single rolling thread: it tracks the *active* conversation id
-  // (just the id, in localStorage) and restores the most recent one on first open.
-  // The full conversation list/switcher lives on the /chat page.
+/**
+ * The assistant docked as a right-side panel (same footprint as TaskDetail).
+ * The parent controls visibility by mounting/unmounting this component; when
+ * both are open the layout is [main content][TaskDetail][ChatPanel], chat
+ * rightmost. It's a single rolling thread: it tracks the *active* conversation
+ * id (just the id, in localStorage) and restores the most recent one on mount.
+ * The full conversation list/switcher lives on the /chat page.
+ */
+export function ChatPanel({ orgId, onClose }: { orgId: string; onClose: () => void }) {
   const activeKey = `pm_chat_active:${orgId}`;
   const [convId, setConvId] = useState<string | null>(null);
   const [restored, setRestored] = useState(false);
 
   useEffect(() => {
-    if (!open || restored) return;
+    if (restored) return;
     let cancelled = false;
     const stored = localStorage.getItem(activeKey);
     if (stored) {
@@ -35,39 +39,12 @@ export function ChatWidget({ orgId }: { orgId: string }) {
     return () => {
       cancelled = true;
     };
-  }, [open, restored, activeKey]);
+  }, [restored, activeKey]);
 
   function setActive(id: string | null) {
     setConvId(id);
     if (id) localStorage.setItem(activeKey, id);
     else localStorage.removeItem(activeKey);
-  }
-
-  if (!open) {
-    return (
-      <button
-        onClick={() => setOpen(true)}
-        title="Assistant"
-        aria-label="Open assistant"
-        style={{
-          position: "fixed",
-          right: 20,
-          bottom: 20,
-          width: 40,
-          height: 40,
-          borderRadius: "50%",
-          border: "none",
-          background: "var(--primary)",
-          color: "#fff",
-          fontSize: 17,
-          cursor: "pointer",
-          boxShadow: "0 4px 14px rgba(0,0,0,0.22)",
-          zIndex: 60,
-        }}
-      >
-        💬
-      </button>
-    );
   }
 
   const headerControls = (
@@ -92,29 +69,24 @@ export function ChatWidget({ orgId }: { orgId: string }) {
   );
 
   return (
-    <div
+    <aside
       style={{
-        position: "fixed",
-        right: 20,
-        bottom: 20,
         width: 380,
-        maxWidth: "calc(100vw - 40px)",
-        height: 560,
-        maxHeight: "calc(100vh - 40px)",
+        flexShrink: 0,
+        borderLeft: "1px solid var(--border)",
         background: "var(--surface)",
-        border: "1px solid var(--border)",
-        borderRadius: 12,
-        boxShadow: "0 12px 40px rgba(0,0,0,0.3)",
-        zIndex: 60,
-        overflow: "hidden",
+        display: "flex",
+        flexDirection: "column",
+        height: "100%",
+        minHeight: 0,
       }}
     >
       <ChatConversation
         conversationId={convId}
         onConversationChanged={(c) => setActive(c.id)}
         headerExtra={headerControls}
-        onClose={() => setOpen(false)}
+        onClose={onClose}
       />
-    </div>
+    </aside>
   );
 }

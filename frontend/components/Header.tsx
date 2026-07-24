@@ -11,12 +11,16 @@ export function Header({
   titleSeed,
   titleEmoji,
   orgId,
+  onToggleChat,
+  chatOpen,
 }: {
   onToggleSidebar: () => void;
   title: string;
   titleSeed?: string | null;
   titleEmoji?: string | null;
   orgId: string | null;
+  onToggleChat?: () => void;
+  chatOpen?: boolean;
 }) {
   const { theme, toggle } = useTheme();
 
@@ -62,6 +66,18 @@ export function Header({
           {title}
         </strong>
       </span>
+      {orgId && onToggleChat && (
+        <button
+          className="icon-btn"
+          onClick={onToggleChat}
+          title="Assistant"
+          aria-label="Toggle assistant"
+          aria-pressed={chatOpen}
+          style={{ fontSize: 16, background: chatOpen ? "var(--surface-2)" : undefined }}
+        >
+          💬
+        </button>
+      )}
       {orgId && <NotificationsBell key={orgId} />}
       <button className="icon-btn" onClick={toggle} title="Toggle theme" aria-label="Toggle theme" style={{ fontSize: 16 }}>
         {theme === "light" ? "🌙" : "☀️"}

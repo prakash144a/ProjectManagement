@@ -27,7 +27,7 @@ import { CommentThread } from "@/components/CommentThread";
 import { ProjectSecurity } from "@/components/ProjectSecurity";
 import { MyTasks } from "@/components/MyTasks";
 import { Dashboard } from "@/components/Dashboard";
-import { ChatWidget } from "@/components/ChatWidget";
+import { ChatPanel } from "@/components/ChatPanel";
 
 // Mirror the backend ordering: rank ascending, unranked tasks last, then created_at.
 function sortByRank(arr: Task[]): Task[] {
@@ -51,6 +51,7 @@ export default function HomePage() {
     "list" | "kanban" | "gantt" | "discussions"
   >("list");
   const [showSecurity, setShowSecurity] = useState(false);
+  const [chatOpen, setChatOpen] = useState(false);
 
   const [orgs, setOrgs] = useState<Org[]>([]);
   const [orgId, setOrgId] = useState<string | null>(null);
@@ -293,6 +294,8 @@ export default function HomePage() {
                 : null
         }
         orgId={orgId}
+        onToggleChat={() => setChatOpen((c) => !c)}
+        chatOpen={chatOpen}
       />
       {error && (
         <div
@@ -499,9 +502,11 @@ export default function HomePage() {
             />
           )}
         </main>
-      </div>
 
-      {orgId && <ChatWidget key={orgId} orgId={orgId} />}
+        {orgId && chatOpen && (
+          <ChatPanel key={orgId} orgId={orgId} onClose={() => setChatOpen(false)} />
+        )}
+      </div>
     </div>
   );
 }
