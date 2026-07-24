@@ -1,12 +1,14 @@
 # Roadmap & Next Milestones
 
-_Living plan for resuming work across sessions. Last updated 2026-07-23._
+_Living plan for resuming work across sessions. Last updated 2026-07-23 (chat history + design
+polish shipped; per-workspace AI flag dropped)._
 
 ## Status — done & committed
 Phase 1 GUI · Phase 2 chat agent + **A1 retrieval** (pgvector, live) · Phase 3 **voice**
-(Gemini Live) · design-system passes 1–2 · `/chat` page + localStorage persistence ·
+(Gemini Live) · **DB-backed multi-conversation chat history** · `/chat` page ·
 **standalone MCP server + Personal Access Tokens** · **email OTP delivery** (ACS) ·
-**deployed & live on Azure Container Apps**.
+**deployed & live on Azure Container Apps** · **design polish** (resizable panels, right-docked
+chat, icon-rail sidebar, restyled TaskDetail/comments/bell/filter bar).
 Models: `gemini-flash-latest` (chat), `gemini-2.5-flash-native-audio-latest` (voice),
 `gemini-embedding-001` @768 (retrieval).
 
@@ -38,19 +40,18 @@ request back. SMS stubbed behind the same interface (dev-logs in dev, raises in 
 5. **Custom domains** — `app.`/`api.`/`mcp.` for stable URLs (also removes frontend rebuild-on-URL friction).
 
 ### B. Feature backlog (priority order)
-6. **DB-backed chat history** — `conversation` + `message` tables (RLS); list/reopen past
-   chats, cross-device. Replaces per-device localStorage single conversation.
-7. **Per-workspace AI on/off flag** + per-workspace model endpoint. AI is always-on today.
-8. **MCP OAuth 2.1** — one-click Claude/ChatGPT connect (PAT built; OAuth is the upgrade).
-9. **SMS OTP** — second channel (Twilio/ACS SMS; needs number + A2P/toll-free registration).
-10. **Mobile app** — React Native / Expo (calls the live api URL; store-distributed).
-11. **Billing** — Stripe on the Organization boundary.
-12. **Design polish** — avatars + greeting, 3-column dashboard w/ insights panel, per-KPI
-    trend deltas, restyle TaskDetail/comments/bell/filter bar. _(AI exec-summary strip declined.)_
+6. **MCP OAuth 2.1** — one-click Claude/ChatGPT connect (PAT built; OAuth is the upgrade).
+7. **SMS OTP** — second channel (Twilio/ACS SMS; needs number + A2P/toll-free registration).
+8. **Mobile app** — React Native / Expo (calls the live api URL; store-distributed).
+9. **Billing** — Stripe on the Organization boundary.
+
+_Done:_ ✅ **DB-backed chat history** · ✅ **Design polish** (resizable/docked panels, icon-rail
+sidebar, restyled TaskDetail/comments/bell/filter bar). _Dropped:_ ~~Per-workspace AI on/off
+flag~~ — no longer required. _(AI exec-summary strip also declined.)_
 
 ### C. North-star (only if asked)
-13. **Autonomous scheduled prompts** (schedule any NL prompt; runs as the user; skips unsafe actions).
-14. **Realtime & eventing** (live updates instead of refresh).
+10. **Autonomous scheduled prompts** (schedule any NL prompt; runs as the user; skips unsafe actions).
+11. **Realtime & eventing** (live updates instead of refresh).
 
 ---
 
