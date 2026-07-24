@@ -185,7 +185,7 @@ export function ChatConversation({
         key={i}
         style={{
           alignSelf: isUser ? "flex-end" : full ? "stretch" : "flex-start",
-          maxWidth: full ? (isUser ? "80%" : "100%") : "85%",
+          maxWidth: full ? (isUser ? "min(85%, 680px)" : "100%") : "85%",
         }}
       >
         <div
@@ -234,8 +234,9 @@ export function ChatConversation({
 
   return (
     <div style={{ display: "flex", flexDirection: "column", height: "100%", width: "100%", minHeight: 0 }}>
-      {/* Header — only the compact widget shows its own title bar. */}
-      {!full && (
+      {/* Header. Compact widget: title bar + controls. Full page: a slim,
+          quiet bar showing the current conversation title. */}
+      {!full ? (
         <div
           style={{
             display: "flex",
@@ -259,6 +260,24 @@ export function ChatConversation({
             </button>
           )}
         </div>
+      ) : (
+        <div
+          style={{
+            display: "flex",
+            alignItems: "center",
+            height: 52,
+            padding: "0 24px",
+            borderBottom: "1px solid var(--border)",
+            fontWeight: 600,
+            fontSize: 15,
+            color: "var(--text)",
+            overflow: "hidden",
+            textOverflow: "ellipsis",
+            whiteSpace: "nowrap",
+          }}
+        >
+          {title}
+        </div>
       )}
 
       {/* Messages */}
@@ -267,9 +286,9 @@ export function ChatConversation({
           style={{
             display: "flex",
             flexDirection: "column",
-            gap: full ? 22 : 10,
-            padding: full ? "28px 20px 12px" : 14,
-            maxWidth: full ? 768 : undefined,
+            gap: full ? 20 : 10,
+            padding: full ? "28px 44px 16px" : 14,
+            maxWidth: full ? 1180 : undefined,
             width: "100%",
             margin: full ? "0 auto" : undefined,
             boxSizing: "border-box",
@@ -344,7 +363,7 @@ export function ChatConversation({
       <div
         style={{
           borderTop: full ? undefined : "1px solid var(--border)",
-          padding: full ? "10px 20px 22px" : 10,
+          padding: full ? "8px 44px 20px" : 10,
         }}
       >
         <div
@@ -352,7 +371,7 @@ export function ChatConversation({
             display: "flex",
             gap: 8,
             alignItems: "flex-end",
-            maxWidth: full ? 768 : undefined,
+            maxWidth: full ? 1180 : undefined,
             margin: full ? "0 auto" : undefined,
             border: full ? "1px solid var(--border)" : undefined,
             borderRadius: full ? 20 : undefined,

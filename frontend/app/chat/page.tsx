@@ -81,16 +81,13 @@ export default function ChatPage() {
   }
 
   return (
-    <div style={{ height: "100vh", display: "flex", justifyContent: "center", background: "var(--bg)" }}>
+    <div style={{ height: "100vh", background: "var(--bg)" }}>
       <div
         style={{
           width: "100%",
-          maxWidth: 1080,
           height: "100%",
           display: "flex",
           background: "var(--surface)",
-          borderLeft: "1px solid var(--border)",
-          borderRight: "1px solid var(--border)",
         }}
       >
         {/* Sidebar */}
@@ -191,6 +188,9 @@ export default function ChatPage() {
             conversationId={selected}
             onConversationChanged={onConversationChanged}
             variant="full"
+            title={
+              (selected && conversations.find((c) => c.id === selected)?.title) || "New chat"
+            }
           />
         </div>
       </div>
