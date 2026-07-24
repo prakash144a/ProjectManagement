@@ -101,26 +101,30 @@ function Selector({
   );
 }
 
-/** A top-level nav entry (My Tasks, Dashboard) with an icon. */
+/** A top-level nav entry (My Tasks, Dashboard) with an icon. In `compact`
+ * (icon-rail) mode it shows the icon only, centered, with the label as a tooltip. */
 function NavItem({
   icon,
   label,
   active,
   onClick,
+  compact,
 }: {
   icon: string;
   label: string;
   active: boolean;
   onClick: () => void;
+  compact?: boolean;
 }) {
   return (
     <div
       onClick={onClick}
       className={`nav-item${active ? " active" : ""}`}
-      style={{ padding: "7px 10px 7px 12px" }}
+      title={compact ? label : undefined}
+      style={compact ? { padding: "8px 0", justifyContent: "center", gap: 0 } : { padding: "7px 10px 7px 12px" }}
     >
       <span style={{ width: 16, textAlign: "center" }}>{icon}</span>
-      {label}
+      {!compact && label}
     </div>
   );
 }
@@ -130,22 +134,27 @@ function ProjectRow({
   seed,
   active,
   onClick,
+  compact,
 }: {
   label: string;
   seed: string;
   active: boolean;
   onClick: () => void;
+  compact?: boolean;
 }) {
   return (
     <div
       onClick={onClick}
       className={`nav-item${active ? " active" : ""}`}
-      style={{ padding: "6px 8px 6px 12px" }}
+      title={compact ? label : undefined}
+      style={compact ? { padding: "6px 0", justifyContent: "center", gap: 0 } : { padding: "6px 8px 6px 12px" }}
     >
       <ProjectIcon seed={seed} size={22} />
-      <span style={{ minWidth: 0, whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>
-        {label}
-      </span>
+      {!compact && (
+        <span style={{ minWidth: 0, whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>
+          {label}
+        </span>
+      )}
     </div>
   );
 }
@@ -175,10 +184,13 @@ export function Sidebar(props: {
   const { width, dragging, handleProps } = useResizableWidth({
     storageKey: "pm_w_sidebar",
     defaultWidth: 260,
-    min: 140,
+    min: 44,
     max: 420,
     side: "right",
   });
+  // Below this width the sidebar collapses to an icon-only rail: the wordmark,
+  // org/team dropdowns, and text labels are hidden, leaving centered icons.
+  const rail = width < 96;
 
   if (props.collapsed) return null;
 
@@ -201,21 +213,24 @@ export function Sidebar(props: {
           flexShrink: 0,
           display: "flex",
           alignItems: "center",
-          padding: "0 14px",
+          justifyContent: rail ? "center" : "flex-start",
+          padding: rail ? 0 : "0 14px",
           borderBottom: "1px solid var(--border)",
         }}
       >
-        <Logo size={26} wordmark />
+        <Logo size={26} wordmark={!rail} />
       </div>
 
-      <div style={{ flex: 1, overflowY: "auto", padding: 14 }}>
-        <Selector
-          label="Organization"
-          items={props.orgs}
-          selectedId={props.selectedOrgId}
-          onSelect={props.onSelectOrg}
-          onCreate={props.onCreateOrg}
-        />
+      <div style={{ flex: 1, overflowY: "auto", padding: rail ? 8 : 14 }}>
+        {!rail && (
+          <Selector
+            label="Organization"
+            items={props.orgs}
+            selectedId={props.selectedOrgId}
+            onSelect={props.onSelectOrg}
+            onCreate={props.onCreateOrg}
+          />
+        )}
 
         {props.selectedOrgId && (
           <div style={{ marginBottom: 14 }}>
@@ -224,17 +239,19 @@ export function Sidebar(props: {
               label="My Tasks"
               active={props.myTasksActive}
               onClick={props.onOpenMyTasks}
+              compact={rail}
             />
             <NavItem
               icon="📊"
               label="Dashboard"
               active={props.dashboardActive}
               onClick={props.onOpenDashboard}
+              compact={rail}
             />
           </div>
         )}
 
-        {props.selectedOrgId && (
+        {props.selectedOrgId && !rail && (
           <Selector
             label="Team"
             items={props.teams}
@@ -246,20 +263,22 @@ export function Sidebar(props: {
 
         {props.selectedTeamId && (
           <div>
-            <div
-              className="row"
-              style={{ justifyContent: "space-between", marginBottom: 5 }}
-            >
-              <SectionLabel>Projects</SectionLabel>
-              <button
-                onClick={() => setAddingProject((v) => !v)}
-                title="New project"
-                style={{ padding: "0 8px", lineHeight: "20px" }}
+            {!rail && (
+              <div
+                className="row"
+                style={{ justifyContent: "space-between", marginBottom: 5 }}
               >
-                +
-              </button>
-            </div>
-            {addingProject && (
+                <SectionLabel>Projects</SectionLabel>
+                <button
+                  onClick={() => setAddingProject((v) => !v)}
+                  title="New project"
+                  style={{ padding: "0 8px", lineHeight: "20px" }}
+                >
+                  +
+                </button>
+              </div>
+            )}
+            {!rail && addingProject && (
               <div style={{ marginBottom: 6 }}>
                 <AddInline
                   placeholder="New project"
@@ -278,9 +297,10 @@ export function Sidebar(props: {
                 seed={p.id}
                 active={p.id === props.selectedProjectId}
                 onClick={() => props.onSelectProject(p.id)}
+                compact={rail}
               />
             ))}
-            {props.projects.length === 0 && !addingProject && (
+            {!rail && props.projects.length === 0 && !addingProject && (
               <div className="muted" style={{ fontSize: 12 }}>
                 No projects yet
               </div>
@@ -290,14 +310,15 @@ export function Sidebar(props: {
       </div>
 
       {/* App-wide settings, pinned to the bottom. */}
-      <div style={{ borderTop: "1px solid var(--border)", padding: 10 }}>
+      <div style={{ borderTop: "1px solid var(--border)", padding: rail ? 8 : 10 }}>
         <div
           onClick={props.onOpenSettings}
           className={`nav-item${props.settingsActive ? " active" : ""}`}
-          style={{ padding: "7px 10px 7px 12px" }}
+          title={rail ? "Settings" : undefined}
+          style={rail ? { padding: "8px 0", justifyContent: "center", gap: 0 } : { padding: "7px 10px 7px 12px" }}
         >
           <span style={{ width: 16, textAlign: "center" }}>⚙️</span>
-          Settings
+          {!rail && "Settings"}
         </div>
       </div>
       <ResizeHandle side="right" dragging={dragging} handleProps={handleProps} />
