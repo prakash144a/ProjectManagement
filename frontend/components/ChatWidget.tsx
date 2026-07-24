@@ -1,10 +1,47 @@
 "use client";
 
-import { useState } from "react";
+import { useEffect, useState } from "react";
+import { api } from "@/lib/api";
 import { ChatConversation } from "./ChatConversation";
 
 export function ChatWidget({ orgId }: { orgId: string }) {
   const [open, setOpen] = useState(false);
+  // The widget is a single rolling thread: it tracks the *active* conversation id
+  // (just the id, in localStorage) and restores the most recent one on first open.
+  // The full conversation list/switcher lives on the /chat page.
+  const activeKey = `pm_chat_active:${orgId}`;
+  const [convId, setConvId] = useState<string | null>(null);
+  const [restored, setRestored] = useState(false);
+
+  useEffect(() => {
+    if (!open || restored) return;
+    let cancelled = false;
+    const stored = localStorage.getItem(activeKey);
+    if (stored) {
+      setConvId(stored);
+      setRestored(true);
+      return;
+    }
+    // No remembered thread — fall back to the most recent conversation, if any.
+    api.chat
+      .conversations()
+      .then((list) => {
+        if (!cancelled && list.length > 0) setConvId(list[0].id);
+      })
+      .catch(() => {})
+      .finally(() => {
+        if (!cancelled) setRestored(true);
+      });
+    return () => {
+      cancelled = true;
+    };
+  }, [open, restored, activeKey]);
+
+  function setActive(id: string | null) {
+    setConvId(id);
+    if (id) localStorage.setItem(activeKey, id);
+    else localStorage.removeItem(activeKey);
+  }
 
   if (!open) {
     return (
@@ -33,15 +70,25 @@ export function ChatWidget({ orgId }: { orgId: string }) {
     );
   }
 
-  const openInWindow = (
-    <button
-      onClick={() => window.open("/chat", "pm-chat", "width=440,height=720")}
-      title="Open in a separate window"
-      aria-label="Open chat in a separate window"
-      style={{ border: "none", background: "transparent", fontSize: 15, cursor: "pointer" }}
-    >
-      ↗
-    </button>
+  const headerControls = (
+    <>
+      <button
+        onClick={() => setActive(null)}
+        title="New chat"
+        aria-label="New chat"
+        style={{ border: "none", background: "transparent", fontSize: 13, cursor: "pointer" }}
+      >
+        + New
+      </button>
+      <button
+        onClick={() => window.open("/chat", "pm-chat", "width=440,height=720")}
+        title="Open in a separate window"
+        aria-label="Open chat in a separate window"
+        style={{ border: "none", background: "transparent", fontSize: 15, cursor: "pointer" }}
+      >
+        ↗
+      </button>
+    </>
   );
 
   return (
@@ -63,8 +110,9 @@ export function ChatWidget({ orgId }: { orgId: string }) {
       }}
     >
       <ChatConversation
-        persistKey={`pm_chat:${orgId}`}
-        headerExtra={openInWindow}
+        conversationId={convId}
+        onConversationChanged={(c) => setActive(c.id)}
+        headerExtra={headerControls}
         onClose={() => setOpen(false)}
       />
     </div>

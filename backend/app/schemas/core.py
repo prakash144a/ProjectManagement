@@ -231,6 +231,9 @@ class ChatMessage(BaseModel):
 
 class ChatIn(BaseModel):
     message: str = Field(min_length=1)
+    # DB-backed conversation to continue. If omitted, a new conversation is created.
+    conversation_id: uuid.UUID | None = None
+    # Legacy client-sent history; ignored when the DB conversation path runs.
     history: list[ChatMessage] = Field(default_factory=list)
 
 
@@ -242,6 +245,27 @@ class ChatAction(BaseModel):
 class ChatOut(BaseModel):
     reply: str
     actions: list[ChatAction] = Field(default_factory=list)
+    conversation_id: uuid.UUID
+    title: str | None = None
+
+
+class ChatConversationOut(ORMModel):
+    id: uuid.UUID
+    title: str | None
+    created_at: datetime
+    updated_at: datetime
+
+
+class ChatMessageOut(ORMModel):
+    id: uuid.UUID
+    role: str
+    content: str
+    actions: list[ChatAction] | None = None
+    created_at: datetime
+
+
+class ConversationRename(BaseModel):
+    title: str = Field(min_length=1, max_length=200)
 
 
 # --- Retrieval / search (A1) ---

@@ -219,6 +219,23 @@ export interface ChatAction {
 export interface ChatReply {
   reply: string;
   actions: ChatAction[];
+  conversation_id: UUID;
+  title: string | null;
+}
+
+export interface ChatConversation {
+  id: UUID;
+  title: string | null;
+  created_at: string;
+  updated_at: string;
+}
+
+export interface ChatMessageRow {
+  id: UUID;
+  role: "user" | "assistant";
+  content: string;
+  actions: ChatAction[] | null;
+  created_at: string;
 }
 
 export interface Session {
@@ -404,8 +421,21 @@ export const api = {
       request<void>("DELETE", `/projects/${projectId}/grants/${grantId}`),
   },
   chat: {
-    send: (message: string, history: { role: string; content: string }[]) =>
-      request<ChatReply>("POST", "/chat", { body: { message, history } }),
+    send: (message: string, conversationId?: string | null) =>
+      request<ChatReply>("POST", "/chat", {
+        body: { message, conversation_id: conversationId ?? null },
+      }),
+    conversations: () => request<ChatConversation[]>("GET", "/chat/conversations"),
+    createConversation: () =>
+      request<ChatConversation>("POST", "/chat/conversations"),
+    messages: (conversationId: string) =>
+      request<ChatMessageRow[]>("GET", `/chat/conversations/${conversationId}/messages`),
+    rename: (conversationId: string, title: string) =>
+      request<ChatConversation>("PATCH", `/chat/conversations/${conversationId}`, {
+        body: { title },
+      }),
+    remove: (conversationId: string) =>
+      request<void>("DELETE", `/chat/conversations/${conversationId}`),
   },
   tokens: {
     list: () => request<ApiToken[]>("GET", "/auth/tokens"),

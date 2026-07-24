@@ -15,16 +15,21 @@ const GREETING =
 /**
  * The full chat experience (text + voice), used by both the floating widget and
  * the dedicated /chat page. Fills its parent; the parent controls size/chrome.
- * The current conversation is persisted to localStorage under `persistKey`
- * (proper DB-backed multi-conversation history is a later milestone).
+ *
+ * Conversations are DB-backed: `conversationId` selects the thread (null = a new,
+ * not-yet-created conversation — the first send creates it server-side). When the
+ * server assigns/returns a conversation, `onConversationChanged` bubbles it up so
+ * the parent can track the active id and refresh its list.
  */
 export function ChatConversation({
-  persistKey,
+  conversationId,
+  onConversationChanged,
   title = "Assistant",
   headerExtra,
   onClose,
 }: {
-  persistKey: string;
+  conversationId: string | null;
+  onConversationChanged?: (conv: { id: string; title: string | null }) => void;
   title?: string;
   headerExtra?: ReactNode;
   onClose?: () => void;
@@ -32,28 +37,40 @@ export function ChatConversation({
   const [messages, setMessages] = useState<Msg[]>([]);
   const [input, setInput] = useState("");
   const [busy, setBusy] = useState(false);
+  const [loading, setLoading] = useState(false);
   const endRef = useRef<HTMLDivElement>(null);
   const inputRef = useRef<HTMLTextAreaElement>(null);
 
-  // --- persistence (current conversation) ---
-  const persistedRef = useRef(false);
+  // --- load the selected conversation's messages from the DB ---
   useEffect(() => {
-    try {
-      const raw = localStorage.getItem(persistKey);
-      if (raw) setMessages(JSON.parse(raw));
-    } catch {
-      /* ignore */
+    if (!conversationId) {
+      setMessages([]);
+      return;
     }
-    persistedRef.current = true;
-  }, [persistKey]);
-  useEffect(() => {
-    if (!persistedRef.current) return;
-    try {
-      localStorage.setItem(persistKey, JSON.stringify(messages));
-    } catch {
-      /* ignore */
-    }
-  }, [messages, persistKey]);
+    let cancelled = false;
+    setLoading(true);
+    api.chat
+      .messages(conversationId)
+      .then((rows) => {
+        if (cancelled) return;
+        setMessages(
+          rows.map((r) => ({
+            role: r.role,
+            content: r.content,
+            actions: r.actions ?? undefined,
+          })),
+        );
+      })
+      .catch(() => {
+        if (!cancelled) setMessages([]);
+      })
+      .finally(() => {
+        if (!cancelled) setLoading(false);
+      });
+    return () => {
+      cancelled = true;
+    };
+  }, [conversationId]);
 
   // --- voice ---
   const [voice, setVoice] = useState<VoiceStatus>("off");
@@ -137,13 +154,15 @@ export function ChatConversation({
   async function send() {
     const text = input.trim();
     if (!text || busy) return;
-    const history = messages.map((m) => ({ role: m.role, content: m.content }));
     setMessages((m) => [...m, { role: "user", content: text }]);
     setInput("");
     setBusy(true);
     try {
-      const res = await api.chat.send(text, history);
+      const res = await api.chat.send(text, conversationId);
       setMessages((m) => [...m, { role: "assistant", content: res.reply, actions: res.actions }]);
+      // The server may have just created the conversation (conversationId was null),
+      // or refreshed its title/order — let the parent track it.
+      onConversationChanged?.({ id: res.conversation_id, title: res.title });
     } catch (e) {
       const msg = e instanceof ApiError ? e.message : "Something went wrong.";
       setMessages((m) => [...m, { role: "assistant", content: msg }]);
@@ -167,15 +186,6 @@ export function ChatConversation({
       >
         <span style={{ fontWeight: 600, flex: 1 }}>{title}</span>
         {headerExtra}
-        {messages.length > 0 && (
-          <button
-            onClick={() => setMessages([])}
-            title="Clear conversation"
-            style={{ border: "none", background: "transparent", fontSize: 13, cursor: "pointer" }}
-          >
-            Clear
-          </button>
-        )}
         {onClose && (
           <button
             onClick={onClose}
@@ -190,7 +200,12 @@ export function ChatConversation({
 
       {/* Messages */}
       <div style={{ flex: 1, overflowY: "auto", padding: 14, display: "flex", flexDirection: "column", gap: 10, minHeight: 0 }}>
-        {messages.length === 0 && (
+        {loading && (
+          <div className="muted" style={{ fontSize: 13 }}>
+            Loading…
+          </div>
+        )}
+        {!loading && messages.length === 0 && (
           <div className="muted" style={{ fontSize: 13, lineHeight: 1.5 }}>
             {GREETING}
           </div>

@@ -7,6 +7,7 @@ Also declares the RLS table groupings the initial migration applies:
 """
 
 from app.models.auth import OneTimeCode, Session
+from app.models.chat import ChatConversation, ChatMessage
 from app.models.collab import (
     ActivityEvent,
     ProjectAttachment,
@@ -35,7 +36,8 @@ from app.models.work import (
 )
 
 __all__ = [
-    "AccessGrant", "ActivityEvent", "AuditLog", "BillingAccount", "Group",
+    "AccessGrant", "ActivityEvent", "AuditLog", "BillingAccount",
+    "ChatConversation", "ChatMessage", "Group",
     "GroupMembership", "Label", "Notification", "OneTimeCode", "OrgMembership",
     "Organization", "Project", "ProjectAttachment", "ProjectComment",
     "ProjectTaskGroup", "Session", "Task", "TaskAttachment", "TaskComment",
@@ -64,4 +66,6 @@ ORG_SCOPED_TABLES = [
     "activity_event",
     "notification",
     "audit_log",
+    "chat_conversation",
+    "chat_message",
 ]
