@@ -3,6 +3,8 @@
 import { useEffect, useState } from "react";
 import { api } from "@/lib/api";
 import { ChatConversation } from "./ChatConversation";
+import { ResizeHandle } from "./ResizeHandle";
+import { useResizableWidth } from "@/lib/useResizableWidth";
 
 /**
  * The assistant docked as a right-side panel (same footprint as TaskDetail).
@@ -16,6 +18,13 @@ export function ChatPanel({ orgId, onClose }: { orgId: string; onClose: () => vo
   const activeKey = `pm_chat_active:${orgId}`;
   const [convId, setConvId] = useState<string | null>(null);
   const [restored, setRestored] = useState(false);
+  const { width, dragging, handleProps } = useResizableWidth({
+    storageKey: "pm_w_chat",
+    defaultWidth: 380,
+    min: 320,
+    max: 640,
+    side: "left",
+  });
 
   useEffect(() => {
     if (restored) return;
@@ -71,7 +80,8 @@ export function ChatPanel({ orgId, onClose }: { orgId: string; onClose: () => vo
   return (
     <aside
       style={{
-        width: 380,
+        position: "relative",
+        width,
         flexShrink: 0,
         borderLeft: "1px solid var(--border)",
         background: "var(--surface)",
@@ -81,6 +91,7 @@ export function ChatPanel({ orgId, onClose }: { orgId: string; onClose: () => vo
         minHeight: 0,
       }}
     >
+      <ResizeHandle side="left" dragging={dragging} handleProps={handleProps} />
       <ChatConversation
         conversationId={convId}
         onConversationChanged={(c) => setActive(c.id)}

@@ -3,6 +3,8 @@
 import { useState } from "react";
 import { Org, Project, Team } from "@/lib/api";
 import { Logo, ProjectIcon, SectionLabel } from "./ui";
+import { ResizeHandle } from "./ResizeHandle";
+import { useResizableWidth } from "@/lib/useResizableWidth";
 
 function AddInline({
   placeholder,
@@ -170,13 +172,21 @@ export function Sidebar(props: {
   settingsActive: boolean;
 }) {
   const [addingProject, setAddingProject] = useState(false);
+  const { width, dragging, handleProps } = useResizableWidth({
+    storageKey: "pm_w_sidebar",
+    defaultWidth: 260,
+    min: 200,
+    max: 420,
+    side: "right",
+  });
 
   if (props.collapsed) return null;
 
   return (
     <aside
       style={{
-        width: 260,
+        position: "relative",
+        width,
         flexShrink: 0,
         borderRight: "1px solid var(--border)",
         background: "var(--surface)",
@@ -290,6 +300,7 @@ export function Sidebar(props: {
           Settings
         </div>
       </div>
+      <ResizeHandle side="right" dragging={dragging} handleProps={handleProps} />
     </aside>
   );
 }

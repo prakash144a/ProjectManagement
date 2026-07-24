@@ -479,3 +479,28 @@ a {
 .md table { border-collapse: collapse; margin: 6px 0; }
 .md th,
 .md td { border: 1px solid var(--border); padding: 4px 8px; text-align: left; }
+
+/* Drag handle for resizable side panels (sidebar, task detail, chat).
+   The parent panel must be position:relative; the strip straddles its border. */
+.resize-handle {
+  position: absolute;
+  top: 0;
+  bottom: 0;
+  width: 9px;
+  z-index: 30;
+  cursor: col-resize;
+  touch-action: none;
+  display: flex;
+  justify-content: center;
+}
+.resize-handle::before {
+  content: "";
+  width: 2px;
+  height: 100%;
+  background: transparent;
+  transition: background 0.15s ease;
+}
+.resize-handle:hover::before,
+.resize-handle[data-dragging]::before {
+  background: var(--primary);
+}

@@ -5,6 +5,8 @@ import { api, ApiError, Member, Status, Task, TaskGroup } from "@/lib/api";
 import { CommentThread } from "./CommentThread";
 import { PriorityBadge } from "./PriorityBadge";
 import { Avatar, Dot, Pill, SectionLabel } from "./ui";
+import { ResizeHandle } from "./ResizeHandle";
+import { useResizableWidth } from "@/lib/useResizableWidth";
 
 const PRIORITIES = ["none", "low", "medium", "high", "urgent"];
 
@@ -43,6 +45,13 @@ export function TaskDetail({
   const [draft, setDraft] = useState<Task>(task);
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState("");
+  const { width, dragging, handleProps } = useResizableWidth({
+    storageKey: "pm_w_taskdetail",
+    defaultWidth: 380,
+    min: 300,
+    max: 640,
+    side: "left",
+  });
 
   useEffect(() => {
     setDraft(task);
@@ -145,7 +154,8 @@ export function TaskDetail({
   return (
     <aside
       style={{
-        width: 380,
+        position: "relative",
+        width,
         flexShrink: 0,
         borderLeft: "1px solid var(--border)",
         background: "var(--surface)",
@@ -155,6 +165,7 @@ export function TaskDetail({
         minHeight: 0,
       }}
     >
+      <ResizeHandle side="left" dragging={dragging} handleProps={handleProps} />
       {/* Header: editable title + at-a-glance status/priority summary */}
       <div style={{ flexShrink: 0, padding: "14px 16px", borderBottom: "1px solid var(--border)" }}>
         <div className="row" style={{ justifyContent: "space-between", alignItems: "flex-start", gap: 8 }}>
