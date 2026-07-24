@@ -468,6 +468,7 @@ export default function HomePage() {
                     <CommentThread
                       key={project.id}
                       currentUserId={user.id}
+                      currentUserName={user.display_name || user.username || user.email || undefined}
                       load={() => api.comments.projectList(project.id)}
                       add={(b) => api.comments.projectAdd(project.id, b)}
                       remove={(id) => api.comments.projectDelete(project.id, id)}

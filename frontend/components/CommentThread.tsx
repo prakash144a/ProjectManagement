@@ -21,12 +21,14 @@ export function CommentThread({
   add,
   remove,
   currentUserId,
+  currentUserName,
   emptyText = "No comments yet.",
 }: {
   load: () => Promise<Comment[]>;
   add: (body: string) => Promise<Comment>;
   remove: (id: string) => Promise<void>;
   currentUserId: string;
+  currentUserName?: string;
   emptyText?: string;
 }) {
   const [comments, setComments] = useState<Comment[]>([]);
@@ -70,25 +72,34 @@ export function CommentThread({
 
   return (
     <div>
-      <div style={{ display: "flex", flexDirection: "column", gap: 12, marginBottom: 14 }}>
+      <div style={{ display: "flex", flexDirection: "column", gap: 4, marginBottom: 14 }}>
         {comments.map((c) => {
           const name = c.author_name || "Unknown";
           const mine = c.author_id === currentUserId;
           return (
-            <div key={c.id} style={{ display: "flex", gap: 10, alignItems: "flex-start" }}>
+            <div
+              key={c.id}
+              className="comment-row"
+              style={{ display: "flex", gap: 10, alignItems: "flex-start", padding: "6px 4px", borderRadius: 8 }}
+            >
               <Avatar name={name} seed={c.author_id || name} size={30} />
               <div style={{ flex: 1, minWidth: 0 }}>
                 <div className="row" style={{ justifyContent: "space-between", marginBottom: 3 }}>
                   <span style={{ display: "flex", alignItems: "baseline", gap: 7, minWidth: 0 }}>
-                    <strong style={{ fontSize: 13 }}>{name}</strong>
-                    <span className="muted" style={{ fontSize: 11 }} title={new Date(c.created_at).toLocaleString()}>
+                    <strong style={{ fontSize: 13 }}>{mine ? "You" : name}</strong>
+                    <span
+                      className="muted"
+                      style={{ fontSize: 11 }}
+                      title={new Date(c.created_at).toLocaleString()}
+                    >
                       {relTime(c.created_at)}
                     </span>
                   </span>
                   {mine && (
                     <button
-                      className="icon-btn"
+                      className="comment-del icon-btn"
                       title="Delete comment"
+                      aria-label="Delete comment"
                       onClick={() => del(c.id)}
                       style={{ padding: "2px 6px", fontSize: 11, color: "var(--text-dim)" }}
                     >
@@ -98,8 +109,12 @@ export function CommentThread({
                 </div>
                 <div
                   style={{
-                    background: "var(--surface-2)",
-                    border: "1px solid var(--border)",
+                    background: mine
+                      ? "color-mix(in srgb, var(--primary) 9%, var(--surface))"
+                      : "var(--surface-2)",
+                    border: `1px solid ${
+                      mine ? "color-mix(in srgb, var(--primary) 22%, var(--border))" : "var(--border)"
+                    }`,
                     borderRadius: "3px 10px 10px 10px",
                     padding: "8px 11px",
                     whiteSpace: "pre-wrap",
@@ -118,20 +133,26 @@ export function CommentThread({
         )}
       </div>
 
-      <textarea
-        rows={2}
-        value={text}
-        onChange={(e) => setText(e.target.value)}
-        onKeyDown={(e) => {
-          if (e.key === "Enter" && (e.metaKey || e.ctrlKey)) submit();
-        }}
-        placeholder="Write a comment… (Ctrl/⌘+Enter to send)"
-      />
-      {error && <p className="error">{error}</p>}
-      <div className="row" style={{ justifyContent: "flex-end", marginTop: 6 }}>
-        <button className="primary" disabled={busy || !text.trim()} onClick={submit}>
-          {busy ? "Posting…" : "Comment"}
-        </button>
+      {/* Composer: author avatar + input row */}
+      <div style={{ display: "flex", gap: 10, alignItems: "flex-start" }}>
+        {currentUserName && <Avatar name={currentUserName} seed={currentUserId} size={30} />}
+        <div style={{ flex: 1, minWidth: 0 }}>
+          <textarea
+            rows={2}
+            value={text}
+            onChange={(e) => setText(e.target.value)}
+            onKeyDown={(e) => {
+              if (e.key === "Enter" && (e.metaKey || e.ctrlKey)) submit();
+            }}
+            placeholder="Write a comment… (Ctrl/⌘+Enter to send)"
+          />
+          {error && <p className="error" style={{ marginBottom: 0 }}>{error}</p>}
+          <div className="row" style={{ justifyContent: "flex-end", marginTop: 6 }}>
+            <button className="primary" disabled={busy || !text.trim()} onClick={submit}>
+              {busy ? "Posting…" : "Comment"}
+            </button>
+          </div>
+        </div>
       </div>
     </div>
   );

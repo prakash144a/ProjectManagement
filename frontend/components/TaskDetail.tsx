@@ -3,9 +3,23 @@
 import { useEffect, useState } from "react";
 import { api, ApiError, Member, Status, Task, TaskGroup } from "@/lib/api";
 import { CommentThread } from "./CommentThread";
-import { Avatar, SectionLabel } from "./ui";
+import { PriorityBadge } from "./PriorityBadge";
+import { Avatar, Dot, Pill, SectionLabel } from "./ui";
 
 const PRIORITIES = ["none", "low", "medium", "high", "urgent"];
+
+// A short, human due-date hint ("3d overdue", "due today", "in 5d") + a tone.
+function dueHint(due: string | null | undefined): { text: string; color: string } | null {
+  if (!due) return null;
+  const today = new Date();
+  today.setHours(0, 0, 0, 0);
+  const d = new Date(`${due}T00:00:00`);
+  const days = Math.round((d.getTime() - today.getTime()) / 86400000);
+  if (days < 0) return { text: `${-days}d overdue`, color: "#dc2626" };
+  if (days === 0) return { text: "due today", color: "#d97706" };
+  if (days === 1) return { text: "due tomorrow", color: "#d97706" };
+  return { text: `in ${days}d`, color: "var(--text-dim)" };
+}
 
 export function TaskDetail({
   task,
@@ -124,6 +138,9 @@ export function TaskDetail({
   }
 
   const memberLabel = (m: Member) => m.display_name || m.email || m.username || m.id.slice(0, 8);
+  const me = members.find((m) => m.id === currentUserId);
+  const progress = draft.progress ?? 0;
+  const hint = dueHint(draft.due_date);
 
   return (
     <aside
@@ -132,184 +149,210 @@ export function TaskDetail({
         flexShrink: 0,
         borderLeft: "1px solid var(--border)",
         background: "var(--surface)",
-        padding: 18,
-        overflowY: "auto",
+        display: "flex",
+        flexDirection: "column",
+        height: "100%",
+        minHeight: 0,
       }}
     >
-      <div className="row" style={{ justifyContent: "space-between", marginBottom: 14 }}>
-        <SectionLabel>Task details</SectionLabel>
-        <button className="icon-btn" onClick={onClose} title="Close" aria-label="Close panel">
-          ✕
-        </button>
-      </div>
-
-      <div className="field">
-        <label>Assignee</label>
-        <div className="row" style={{ gap: 8 }}>
-          {draft.assignee_id ? (
-            <Avatar
-              name={(() => {
-                const m = members.find((x) => x.id === draft.assignee_id);
-                return m ? memberLabel(m) : "Unknown";
-              })()}
-              seed={draft.assignee_id}
-              size={30}
-            />
-          ) : (
-            <span
-              className="avatar"
-              title="Unassigned"
-              style={{ width: 30, height: 30, fontSize: 13, color: "var(--text-dim)", background: "var(--surface-2)", border: "1px dashed var(--border)" }}
-            >
-              ?
+      {/* Header: editable title + at-a-glance status/priority summary */}
+      <div style={{ flexShrink: 0, padding: "14px 16px", borderBottom: "1px solid var(--border)" }}>
+        <div className="row" style={{ justifyContent: "space-between", alignItems: "flex-start", gap: 8 }}>
+          <input
+            className="title-input"
+            value={draft.title}
+            onChange={(e) => set("title", e.target.value)}
+            aria-label="Task title"
+          />
+          <button className="icon-btn" onClick={onClose} title="Close" aria-label="Close panel">
+            ✕
+          </button>
+        </div>
+        <div className="row" style={{ gap: 8, marginTop: 10, flexWrap: "wrap" }}>
+          <Pill color={currentStatus?.color || "var(--text-dim)"} dot>
+            {currentStatus?.name || "No status"}
+          </Pill>
+          {draft.priority && draft.priority !== "none" && (
+            <span className="row" style={{ gap: 6 }}>
+              <PriorityBadge priority={draft.priority} />
+              <span className="muted" style={{ fontSize: 12, textTransform: "capitalize" }}>{draft.priority}</span>
             </span>
           )}
-          <select
-            value={draft.assignee_id || ""}
-            onChange={(e) => set("assignee_id", e.target.value || null)}
-            style={{ flex: 1 }}
-          >
-            <option value="">Unassigned</option>
-            {members.map((m) => (
-              <option key={m.id} value={m.id}>
-                {memberLabel(m)}
-              </option>
-            ))}
-          </select>
+          {hint && (
+            <span style={{ fontSize: 12, fontWeight: 600, color: hint.color, marginLeft: "auto" }}>{hint.text}</span>
+          )}
         </div>
       </div>
 
-      <div className="field">
-        <label>Title</label>
-        <input value={draft.title} onChange={(e) => set("title", e.target.value)} />
-      </div>
-
-      <div className="row" style={{ gap: 12 }}>
-        <div className="field" style={{ flex: 1 }}>
-          <label>Status</label>
-          <select
-            value={draft.status_id || ""}
-            onChange={(e) => setStatus(e.target.value || null)}
-          >
-            <option value="">—</option>
-            {statuses.map((s) => (
-              <option key={s.id} value={s.id}>
-                {s.name}
-              </option>
-            ))}
-          </select>
+      {/* Scrollable body */}
+      <div style={{ flex: 1, minHeight: 0, overflowY: "auto", padding: 16 }}>
+        <SectionLabel style={{ display: "block", marginBottom: 10 }}>People</SectionLabel>
+        <div className="field">
+          <label>Assignee</label>
+          <div className="row" style={{ gap: 8 }}>
+            {draft.assignee_id ? (
+              <Avatar
+                name={(() => {
+                  const m = members.find((x) => x.id === draft.assignee_id);
+                  return m ? memberLabel(m) : "Unknown";
+                })()}
+                seed={draft.assignee_id}
+                size={30}
+              />
+            ) : (
+              <span
+                className="avatar"
+                title="Unassigned"
+                style={{ width: 30, height: 30, fontSize: 13, color: "var(--text-dim)", background: "var(--surface-2)", border: "1px dashed var(--border)" }}
+              >
+                ?
+              </span>
+            )}
+            <select
+              value={draft.assignee_id || ""}
+              onChange={(e) => set("assignee_id", e.target.value || null)}
+              style={{ flex: 1 }}
+            >
+              <option value="">Unassigned</option>
+              {members.map((m) => (
+                <option key={m.id} value={m.id}>
+                  {memberLabel(m)}
+                </option>
+              ))}
+            </select>
+          </div>
         </div>
-        <div className="field" style={{ flex: 1 }}>
-          <label>Priority</label>
-          <select value={draft.priority} onChange={(e) => set("priority", e.target.value)}>
-            {PRIORITIES.map((p) => (
-              <option key={p} value={p}>
-                {p}
-              </option>
-            ))}
-          </select>
+
+        <SectionLabel style={{ display: "block", margin: "20px 0 10px" }}>Status &amp; progress</SectionLabel>
+        <div className="row" style={{ gap: 12 }}>
+          <div className="field" style={{ flex: 1 }}>
+            <label>Status</label>
+            <div className="select-lead">
+              <span className="lead-dot">
+                <Dot color={currentStatus?.color || "var(--border)"} />
+              </span>
+              <select value={draft.status_id || ""} onChange={(e) => setStatus(e.target.value || null)}>
+                <option value="">—</option>
+                {statuses.map((s) => (
+                  <option key={s.id} value={s.id}>
+                    {s.name}
+                  </option>
+                ))}
+              </select>
+            </div>
+          </div>
+          <div className="field" style={{ flex: 1 }}>
+            <label>Priority</label>
+            <select value={draft.priority} onChange={(e) => set("priority", e.target.value)}>
+              {PRIORITIES.map((p) => (
+                <option key={p} value={p}>
+                  {p}
+                </option>
+              ))}
+            </select>
+          </div>
         </div>
-      </div>
 
-      <div className="field">
-        <div className="row" style={{ justifyContent: "space-between", marginBottom: 4 }}>
-          <label style={{ margin: 0 }}>Progress</label>
-          <span
-            style={{
-              fontSize: 12,
-              fontWeight: 700,
-              fontVariantNumeric: "tabular-nums",
-              color: (draft.progress ?? 0) > 0 ? barColor : "var(--text-dim)",
-            }}
-          >
-            {draft.progress ?? 0}%
-          </span>
-        </div>
-        <input
-          type="range"
-          min={0}
-          max={100}
-          step={5}
-          value={draft.progress ?? 0}
-          onChange={(e) => setProgress(Number(e.target.value))}
-          aria-label="Task progress"
-          style={{
-            width: "100%",
-            padding: 0,
-            border: "none",
-            background: "transparent",
-            accentColor: barColor,
-            cursor: "pointer",
-          }}
-        />
-        <div className="muted" style={{ fontSize: 11, marginTop: 2 }}>
-          Linked to status: past 0% sets “In progress”, 100% sets “Done”.
-        </div>
-      </div>
-
-      <div className="field">
-        <label>Description</label>
-        <textarea
-          rows={4}
-          value={draft.description || ""}
-          onChange={(e) => set("description", e.target.value)}
-        />
-      </div>
-
-      <div className="field">
-        <label>Task group</label>
-        <select
-          value={draft.project_task_group_id || ""}
-          onChange={(e) => set("project_task_group_id", e.target.value || null)}
-        >
-          <option value="">Ungrouped</option>
-          {taskGroups.map((g) => (
-            <option key={g.id} value={g.id}>
-              {g.name}
-            </option>
-          ))}
-        </select>
-      </div>
-
-      <div className="row" style={{ gap: 12 }}>
-        <div className="field" style={{ flex: 1 }}>
-          <label>Start date</label>
+        <div className="field">
+          <div className="row" style={{ justifyContent: "space-between", marginBottom: 4 }}>
+            <label style={{ margin: 0 }}>Progress</label>
+            <span
+              style={{
+                fontSize: 12,
+                fontWeight: 700,
+                fontVariantNumeric: "tabular-nums",
+                color: progress > 0 ? barColor : "var(--text-dim)",
+              }}
+            >
+              {progress}%
+            </span>
+          </div>
           <input
-            type="date"
-            value={draft.start_date || ""}
-            onChange={(e) => set("start_date", e.target.value || null)}
+            type="range"
+            min={0}
+            max={100}
+            step={5}
+            value={progress}
+            onChange={(e) => setProgress(Number(e.target.value))}
+            aria-label="Task progress"
+            style={{ width: "100%", padding: 0, border: "none", background: "transparent", accentColor: barColor, cursor: "pointer" }}
+          />
+          <div className="muted" style={{ fontSize: 11, marginTop: 2 }}>
+            Linked to status: past 0% sets “In progress”, 100% sets “Done”.
+          </div>
+        </div>
+
+        <SectionLabel style={{ display: "block", margin: "20px 0 10px" }}>Details</SectionLabel>
+        <div className="field">
+          <label>Description</label>
+          <textarea
+            rows={4}
+            value={draft.description || ""}
+            onChange={(e) => set("description", e.target.value)}
           />
         </div>
-        <div className="field" style={{ flex: 1 }}>
-          <label>Due date</label>
-          <input
-            type="date"
-            value={draft.due_date || ""}
-            onChange={(e) => set("due_date", e.target.value || null)}
+        <div className="field">
+          <label>Task group</label>
+          <select
+            value={draft.project_task_group_id || ""}
+            onChange={(e) => set("project_task_group_id", e.target.value || null)}
+          >
+            <option value="">Ungrouped</option>
+            {taskGroups.map((g) => (
+              <option key={g.id} value={g.id}>
+                {g.name}
+              </option>
+            ))}
+          </select>
+        </div>
+
+        <SectionLabel style={{ display: "block", margin: "20px 0 10px" }}>Scheduling</SectionLabel>
+        <div className="row" style={{ gap: 12 }}>
+          <div className="field" style={{ flex: 1 }}>
+            <label>Start date</label>
+            <input
+              type="date"
+              value={draft.start_date || ""}
+              onChange={(e) => set("start_date", e.target.value || null)}
+            />
+          </div>
+          <div className="field" style={{ flex: 1 }}>
+            <label style={{ display: "flex", justifyContent: "space-between" }}>
+              <span>Due date</span>
+              {hint && <span style={{ color: hint.color, fontWeight: 600 }}>{hint.text}</span>}
+            </label>
+            <input
+              type="date"
+              value={draft.due_date || ""}
+              onChange={(e) => set("due_date", e.target.value || null)}
+            />
+          </div>
+        </div>
+
+        <div style={{ borderTop: "1px solid var(--border)", marginTop: 22, paddingTop: 16 }}>
+          <SectionLabel style={{ display: "block", marginBottom: 12 }}>Comments</SectionLabel>
+          <CommentThread
+            key={task.id}
+            currentUserId={currentUserId}
+            currentUserName={me ? memberLabel(me) : undefined}
+            load={() => api.comments.taskList(task.id)}
+            add={(b) => api.comments.taskAdd(task.id, b)}
+            remove={(id) => api.comments.taskDelete(task.id, id)}
           />
         </div>
       </div>
 
-      {error && <p className="error">{error}</p>}
-
-      <div className="row" style={{ justifyContent: "space-between", marginTop: 12 }}>
-        <button className="danger" disabled={busy} onClick={remove}>
-          Delete
-        </button>
-        <button className="primary" disabled={busy} onClick={save}>
-          {busy ? "Saving…" : "Save changes"}
-        </button>
-      </div>
-
-      <div style={{ borderTop: "1px solid var(--border)", marginTop: 18, paddingTop: 14 }}>
-        <SectionLabel style={{ marginBottom: 12 }}>Comments</SectionLabel>
-        <CommentThread
-          key={task.id}
-          currentUserId={currentUserId}
-          load={() => api.comments.taskList(task.id)}
-          add={(b) => api.comments.taskAdd(task.id, b)}
-          remove={(id) => api.comments.taskDelete(task.id, id)}
-        />
+      {/* Sticky action footer */}
+      <div style={{ flexShrink: 0, padding: "10px 16px", borderTop: "1px solid var(--border)", background: "var(--surface)" }}>
+        {error && <p className="error" style={{ margin: "0 0 8px" }}>{error}</p>}
+        <div className="row" style={{ justifyContent: "space-between" }}>
+          <button className="danger" disabled={busy} onClick={remove}>
+            Delete
+          </button>
+          <button className="primary" disabled={busy} onClick={save}>
+            {busy ? "Saving…" : "Save changes"}
+          </button>
+        </div>
       </div>
     </aside>
   );
